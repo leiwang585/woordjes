@@ -95,6 +95,19 @@ Words are spoken with the device's own Dutch voice. Choose which one under
 basic "compact" voices, so Enhanced/Premium voices downloaded in Settings don't appear there.
 Turn off silent mode to hear it.
 
+### Natural voice pack
+
+For a natural voice, make a voice pack on a computer. It renders every word in a backup file
+with Microsoft's neural voice *Fenna* (via the unofficial `edge-tts` service, so for personal use):
+
+```powershell
+.\.venv\Scripts\python.exe tools\make_audio_pack.py woordjes-backup.json -o woordjes-voice.json
+```
+
+Put the file on the phone and use **Lists → Dutch voice → Import voice pack** (about 17 MB for
+1,000 words). It's stored on the device and works offline. Words without a clip (e.g. added later)
+use the device voice; make a new pack from a fresh backup to include them.
+
 ## Project layout
 
 - `frontend/` – the app (published to GitHub Pages)
@@ -102,5 +115,6 @@ Turn off silent mode to hear it.
   - `parser.js` – PDF word-list parser (loads `vendor/pdfjs/`, Apache-2.0)
   - `app.js`, `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
 - `tools/export_backup.py` – converts the old server database into a backup file
+- `tools/make_audio_pack.py` – makes a natural-voice pack from a backup file
 - `backend/`, `requirements.txt`, `railway.json` – the earlier server version (FastAPI, with
-  accounts). The current app doesn't use it; it's only needed by `tools/export_backup.py`.
+  accounts). The current app doesn't use it; the tools reuse its database and speech code.

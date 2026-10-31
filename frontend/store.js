@@ -160,6 +160,60 @@ const store = (() => {
     };
 })();
 
+/* ---------- Natural-voice audio pack (IndexedDB: too large for localStorage) ---------- */
+
+const audioStore = (() => {
+    let dbPromise = null;
+    const open = () => {
+        dbPromise = dbPromise || new Promise((resolve, reject) => {
+            const req = indexedDB.open('woordjes-audio', 1);
+            req.onupgradeneeded = () => req.result.createObjectStore('clips');
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+        return dbPromise;
+    };
+    // Runs fn(store) in one transaction; resolves with the request's result once committed.
+    const run = async (mode, fn) => {
+        const db = await open();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('clips', mode);
+            const req = fn(tx.objectStore('clips'));
+            tx.oncomplete = () => resolve(req ? req.result : undefined);
+            tx.onerror = tx.onabort = () => reject(tx.error || new Error('Storage error'));
+        });
+    };
+
+    function decode(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    }
+
+    return {
+        count: () => run('readonly', (s) => s.count()),
+        get: (text) => run('readonly', (s) => s.get(text)),
+        clear: () => run('readwrite', (s) => s.clear()),
+
+        // Stores clips as raw bytes (more reliable than Blobs in older iOS IndexedDB).
+        async importPack(pack, onProgress) {
+            if (!pack || pack.app !== 'woordjes-audio' || typeof pack.clips !== 'object') {
+                throw new Error('This is not a Woordjes voice pack');
+            }
+            const entries = Object.entries(pack.clips);
+            const CHUNK = 100;
+            for (let i = 0; i < entries.length; i += CHUNK) {
+                const chunk = entries.slice(i, i + CHUNK).map(([text, b64]) => [text, decode(b64)]);
+                await run('readwrite', (s) => { for (const [text, bytes] of chunk) s.put(bytes, text); });
+                onProgress?.(Math.min(i + CHUNK, entries.length), entries.length);
+            }
+            localStorage.setItem('voicePack', pack.voice || 'natural voice');
+            return entries.length;
+        },
+    };
+})();
+
 /* ---------- Example sentences (Tatoeba.org, CC BY 2.0 FR) ---------- */
 
 const TATOEBA_URL = 'https://api.tatoeba.org/unstable/sentences';

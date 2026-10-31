@@ -118,7 +118,8 @@ function wordPicker(words, mode) {
 }
 
 /* ---------- Pronunciation ---------- */
-// Uses the device's own Dutch voice. Safari on iPhone only exposes the basic "compact" voices.
+// Natural-voice clips from an imported voice pack when available; otherwise the device's own
+// Dutch voice (Safari on iPhone only exposes the basic "compact" voices to web apps).
 
 const canSynth = 'speechSynthesis' in window;
 let dutchVoice = null;
@@ -151,29 +152,64 @@ function setSpeaking(on) {
     if (!on) activeSpeakBtn = null;
 }
 
+// Natural-voice clips imported from a voice pack are played with an <audio> element.
+const SILENT_WAV = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+const audio = new Audio();
+let audioUrl = null;
+let speakToken = 0;
+let voicePackSize = 0;
+audio.addEventListener('ended', () => setSpeaking(false));
+
+const refreshVoicePack = () => audioStore.count()
+    .then((n) => { voicePackSize = n; })
+    .catch(() => { voicePackSize = 0; });
+
 function stopSpeaking() {
+    speakToken++;
+    audio.pause();
     if (canSynth) speechSynthesis.cancel();
     setSpeaking(false);
 }
 
-function speak(text, btn = null) {
-    const t = cleanSpeech(text);
-    if (!t || !canSynth) return;
-    stopSpeaking();
-    activeSpeakBtn = btn;
-    setSpeaking(true);
+function synthSpeak(t) {
+    if (!canSynth) return setSpeaking(false);
     const u = new SpeechSynthesisUtterance(t);
     u.lang = 'nl-NL';
     if (dutchVoice) u.voice = dutchVoice;
     u.rate = 0.85;
-    u.onend = u.onerror = () => { if (speak.current === u) setSpeaking(false); };
-    speak.current = u; // keep a reference so the utterance isn't garbage-collected mid-speech
+    u.onend = u.onerror = () => { if (synthSpeak.current === u) setSpeaking(false); };
+    synthSpeak.current = u; // keep a reference so the utterance isn't garbage-collected mid-speech
     speechSynthesis.speak(u);
 }
 
-// iOS only allows speech after a user gesture; unlock it on the first tap.
+async function speak(text, btn = null) {
+    const t = cleanSpeech(text);
+    if (!t) return;
+    stopSpeaking();
+    const token = speakToken;
+    activeSpeakBtn = btn;
+    setSpeaking(true);
+    let clip = null;
+    if (voicePackSize) {
+        try { clip = await audioStore.get(t); } catch { /* fall back to the device voice */ }
+    }
+    if (token !== speakToken) return; // something else started speaking meanwhile
+    if (!clip) return synthSpeak(t);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    audioUrl = URL.createObjectURL(new Blob([clip], { type: 'audio/mpeg' }));
+    audio.src = audioUrl;
+    audio.play().catch((err) => {
+        if (token === speakToken && err.name !== 'AbortError') synthSpeak(t);
+    });
+}
+
+// iOS only allows audio and speech after a user gesture; unlock both on the first tap.
 {
     const unlock = () => {
+        if (!audio.src) {
+            audio.src = SILENT_WAV;
+            audio.play().catch(() => { });
+        }
         if (canSynth) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
         document.removeEventListener('touchend', unlock, true);
         document.removeEventListener('click', unlock, true);
@@ -414,12 +450,63 @@ function voiceCard() {
     });
     onVoicesChanged = fill; // voices load asynchronously on iPhone
     fill();
+
+    const packStatus = el('p', { class: 'muted small-print' });
+    const packInput = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
+    const importBtn = el('button', { class: 'btn small', type: 'button', onclick: () => packInput.click() });
+    const removeBtn = el('button', {
+        class: 'btn small', type: 'button',
+        onclick: async () => {
+            if (!confirm('Remove the natural voice pack from this device?')) return;
+            await audioStore.clear();
+            localStorage.removeItem('voicePack');
+            await refreshVoicePack();
+            syncPack();
+        },
+    }, 'Remove');
+    const syncPack = () => {
+        packStatus.textContent = voicePackSize
+            ? `Natural voice installed for ${voicePackSize} words. Other words use the voice above.`
+            : 'For a natural voice, import a voice pack made on a computer with tools/make_audio_pack.py.';
+        importBtn.textContent = voicePackSize ? 'Update voice pack' : 'Import voice pack';
+        removeBtn.hidden = !voicePackSize;
+    };
+    packInput.addEventListener('change', async () => {
+        const file = packInput.files[0];
+        packInput.value = '';
+        if (!file) return;
+        importBtn.disabled = true;
+        packStatus.textContent = 'Reading voice pack…';
+        try {
+            let pack;
+            try {
+                pack = JSON.parse(await file.text());
+            } catch {
+                throw new Error('This is not a Woordjes voice pack');
+            }
+            const n = await audioStore.importPack(pack, (done, total) => {
+                packStatus.textContent = `Installing… ${done} / ${total}`;
+            });
+            await refreshVoicePack();
+            toast(`Installed natural voice for ${n} words`);
+        } catch (e) {
+            toast(e.name === 'QuotaExceededError' ? 'Not enough storage space on this device' : e.message);
+        } finally {
+            importBtn.disabled = false;
+            syncPack();
+        }
+    });
+    syncPack();
+
     return el('section', { class: 'card backup-card' },
         el('h2', { text: 'Dutch voice' }),
         el('p', { class: 'muted small-print', text: canSynth
             ? 'Choose the voice used for pronunciation. iPhone only lets web apps use its basic voices, so Enhanced voices from Settings don\'t appear here.'
             : 'This browser has no speech support.' }),
-        el('div', { class: 'study-row' }, select, testBtn));
+        el('div', { class: 'study-row' }, select, testBtn),
+        el('div', { style: 'margin-top:14px' }, packStatus),
+        el('div', { class: 'row' }, importBtn, removeBtn),
+        packInput);
 }
 
 /* ---------- Backup ---------- */
@@ -1027,7 +1114,7 @@ $('#chapter-select').addEventListener('change', (e) => {
 });
 
 window.addEventListener('hashchange', router);
-router();
+refreshVoicePack().finally(router);
 
 // Ask the browser not to clear this app's data when storage runs low.
 navigator.storage?.persist?.().catch(() => { });

@@ -6,3 +6,5 @@ data/
 # personal data: never publish
 *.pdf
 woordjes-backup*.json
+woordjes-audio*.json
+woordjes-voice*.json
