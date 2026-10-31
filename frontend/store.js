@@ -10,7 +10,11 @@ const store = (() => {
     function load() {
         try {
             const d = JSON.parse(localStorage.getItem(KEY));
-            if (d && Array.isArray(d.lists) && Array.isArray(d.words)) return d;
+            if (d && Array.isArray(d.lists) && Array.isArray(d.words)) {
+                // Older data had no "known" flag: count words answered right more often than wrong.
+                for (const w of d.words) if (typeof w.known !== 'boolean') w.known = w.correct > w.incorrect;
+                return d;
+            }
         } catch { /* corrupt or missing: start empty */ }
         return { version: 1, nextId: 1, lists: [], words: [] };
     }
@@ -37,10 +41,13 @@ const store = (() => {
             const dutch = text(p.dutch);
             const english = text(p.english);
             if (!dutch || !english) continue;
+            const correct = count(p.correct);
+            const incorrect = count(p.incorrect);
             data.words.push({
                 id: newId(), list_id: listId, dutch, english, chapter: chapterOf(p.chapter),
                 example_nl: optional(p.example_nl), example_en: optional(p.example_en),
-                correct: count(p.correct), incorrect: count(p.incorrect),
+                correct, incorrect,
+                known: typeof p.known === 'boolean' ? p.known : correct > incorrect,
             });
             added++;
         }
@@ -91,10 +98,12 @@ const store = (() => {
             save();
         },
 
+        // "Known" follows the latest answer: flashcards skip known words.
         recordResult(id, correct) {
             const w = findWord(id);
             if (!w) return;
             if (correct) w.correct++; else w.incorrect++;
+            w.known = Boolean(correct);
             save();
         },
 
@@ -118,7 +127,7 @@ const store = (() => {
                     words: data.words.filter((w) => w.list_id === l.id).map((w) => ({
                         dutch: w.dutch, english: w.english, chapter: w.chapter,
                         example_nl: w.example_nl, example_en: w.example_en,
-                        correct: w.correct, incorrect: w.incorrect,
+                        correct: w.correct, incorrect: w.incorrect, known: w.known,
                     })),
                 })),
             };

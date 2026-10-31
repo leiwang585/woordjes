@@ -80,13 +80,39 @@ function orderWords(words, order = state.order) {
     return [...words].sort((a, b) => byChapter(a, b) || a.id - b.id);
 }
 
+// Sequential/A–Z remember the last answered word per mode and selection, to continue there.
+const resumeKey = (mode) => [mode, state.listId, state.chapter, state.order, state.direction].join('|');
+
+function resumeMap() {
+    try {
+        return JSON.parse(localStorage.getItem('resume')) || {};
+    } catch {
+        return {};
+    }
+}
+
+function rememberPosition(mode, word) {
+    if (state.order === 'random') return;
+    const map = resumeMap();
+    if (word) map[resumeKey(mode)] = word.id; else delete map[resumeKey(mode)];
+    localStorage.setItem('resume', JSON.stringify(map));
+}
+
+// Ordered words, starting right after the word last answered in this mode.
+function resumeOrder(words, mode) {
+    const seq = orderWords(words);
+    if (state.order === 'random') return seq;
+    const i = seq.findIndex((w) => w.id === resumeMap()[resumeKey(mode)]);
+    return i < 0 ? seq : [...seq.slice(i + 1), ...seq.slice(0, i + 1)];
+}
+
 // Random favours weak words; other orders step through the list and wrap around.
-function wordPicker(words) {
+function wordPicker(words, mode) {
     if (state.order === 'random') {
         let last = null;
         return () => (last = pickWord(words, last?.id));
     }
-    const seq = orderWords(words);
+    const seq = resumeOrder(words, mode);
     let i = -1;
     return () => seq[(i = (i + 1) % seq.length)];
 }
@@ -162,6 +188,7 @@ function speakButton(getText, extraClass = '') {
 
 function recordResult(word, correct) {
     if (correct) word.correct++; else word.incorrect++;
+    word.known = Boolean(correct);
     try {
         store.recordResult(word.id, correct);
     } catch (e) { toast(e.message); }
@@ -613,9 +640,11 @@ async function renderCards(view) {
         return;
     }
 
-    let deck = orderWords(state.words);
+    // Known words are skipped; a "review" round shows them too.
+    let deck = [];
     let index = 0;
     let missed = [];
+    let tracking = true; // remember the position (not in "practice missed" rounds)
 
     const langLabel = (dutch) => (dutch ? 'Nederlands' : 'English');
     const frontLabel = el('span', { class: 'face-label' });
@@ -675,7 +704,8 @@ async function renderCards(view) {
             renderExample(w);
         }, wasFlipped ? 250 : 0);
         loadExample(w).then(renderExample);
-        counter.textContent = `${index + 1} / ${deck.length}`;
+        const hidden = state.words.filter((x) => x.known).length;
+        counter.textContent = `${index + 1} / ${deck.length}` + (reviewing || !hidden ? '' : ` · ${hidden} known`);
         progress.firstChild.style.width = `${(index / deck.length) * 100}%`;
         if (nlFirst) speak(w.dutch, cardSpeaker);
         if (deck[index + 1]) loadExample(deck[index + 1]);
@@ -684,6 +714,7 @@ async function renderCards(view) {
     function next(known) {
         const w = deck[index];
         recordResult(w, known);
+        if (tracking) rememberPosition('cards', w);
         if (!known) missed.push(w);
         index++;
         if (index < deck.length) return show();
@@ -693,29 +724,50 @@ async function renderCards(view) {
     function finish() {
         stopSpeaking();
         study.hidden = true;
+        if (tracking) rememberPosition('cards', null); // next round starts at the beginning
         const knew = deck.length - missed.length;
         const pct = Math.round((knew / deck.length) * 100);
+        const left = state.words.filter((x) => !x.known).length;
         summary.replaceChildren(
             el('div', { class: 'ring', style: `--p:${pct}` }, el('span', { text: `${pct}%` })),
             el('h2', { text: pct === 100 ? 'Perfect! Goed gedaan!' : 'Round complete!' }),
             el('p', { class: 'muted', text: `You knew ${knew} of ${deck.length} words.` }),
             el('div', { class: 'stack' },
-                missed.length ? el('button', { class: 'btn primary', type: 'button', onclick: () => restart(missed) }, `Practice ${missed.length} missed`) : null,
-                el('button', { class: 'btn', type: 'button', onclick: () => restart(state.words) }, 'Start over')));
+                missed.length ? el('button', { class: 'btn primary', type: 'button', onclick: () => start(missed, { track: false }) }, `Practice ${missed.length} missed`) : null,
+                left ? el('button', { class: 'btn', type: 'button', onclick: () => start() }, `Continue with ${left} words to learn`) : null,
+                el('button', { class: 'btn', type: 'button', onclick: () => start(state.words, { review: true }) }, `Review all ${state.words.length} words`)));
         summary.hidden = false;
     }
 
-    function restart(words) {
-        deck = orderWords(words);
+    function allKnown() {
+        study.hidden = true;
+        summary.replaceChildren(
+            el('div', { class: 'empty-icon', text: '🎉' }),
+            el('h2', { text: 'You know all these words!' }),
+            el('p', { class: 'muted', text: `All ${state.words.length} words here are marked "Know it". Review them, or pick another list or chapter.` }),
+            el('button', { class: 'btn primary', type: 'button', onclick: () => start(state.words, { review: true }) }, `Review all ${state.words.length} words`));
+        summary.hidden = false;
+    }
+
+    let reviewing = false;
+    function start(words = null, { track = true, review = false } = {}) {
+        tracking = track && !review;
+        reviewing = review;
+        if (words) {
+            deck = tracking ? resumeOrder(words, 'cards') : orderWords(words);
+        } else {
+            deck = resumeOrder(state.words, 'cards').filter((w) => !w.known);
+        }
         index = 0;
         missed = [];
+        if (!deck.length) return allKnown();
         summary.hidden = true;
         study.hidden = false;
         show();
     }
 
     view.append(study, summary);
-    show();
+    start();
 }
 
 function scoreline() {
@@ -774,7 +826,7 @@ async function renderMC(view) {
     const options = el('div', { class: 'options' });
     const feedback = el('p', { class: 'feedback' });
     const nextBtn = el('button', { class: 'btn primary', type: 'button', hidden: true, onclick: ask }, 'Next →');
-    const nextWord = wordPicker(state.words);
+    const nextWord = wordPicker(state.words, 'mc');
     // Small chapters borrow wrong answers from the rest of the list.
     const distractorPool = state.words.length >= 4 ? state.words : state.listWords;
 
@@ -803,6 +855,7 @@ async function renderMC(view) {
                 feedback.className = `feedback ${ok ? 'ok' : 'bad'}`;
                 score.add(ok);
                 recordResult(word, ok);
+                rememberPosition('mc', word);
                 prompt.answered();
                 nextBtn.hidden = false;
             },
@@ -833,7 +886,7 @@ async function renderTyping(view) {
     const skipBtn = el('button', { class: 'btn', type: 'button', onclick: () => reveal('wrong', true) }, 'Show answer');
     let word = null;
     let answered = false;
-    const nextWord = wordPicker(state.words);
+    const nextWord = wordPicker(state.words, 'type');
 
     function ask() {
         word = nextWord();
@@ -862,6 +915,7 @@ async function renderTyping(view) {
         feedback.className = `feedback ${ok ? 'ok' : 'bad'}`;
         score.add(ok);
         recordResult(word, ok);
+        rememberPosition('type', word);
         prompt.answered();
         submitBtn.textContent = 'Next →';
         skipBtn.hidden = true;

@@ -76,6 +76,11 @@ The study bar on the Words/Cards/Quiz/Type screens lets you choose:
   (by chapter, then the order of the original list), or *A–Z* (alphabetical by the prompt word).
 - **Chapter**: all chapters or a single chapter (shown only when the list has chapters).
 
+Flashcards skip words you know: **Know it** marks a word as known and it leaves the deck;
+**Still learning** (or a wrong answer in Quiz/Type) brings it back. When everything is known,
+**Review all** goes through every word again. In *Sequential* and *A–Z* order, the app continues
+where you left off, separately for each list, chapter and mode.
+
 ## Example sentences
 
 When you flip a flashcard, the back shows a Dutch example sentence with its English translation.
