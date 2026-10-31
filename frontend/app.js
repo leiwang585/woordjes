@@ -118,7 +118,7 @@ function wordPicker(words, mode) {
 }
 
 /* ---------- Pronunciation ---------- */
-// Uses the device's own Dutch voice (on iPhone: Settings → Accessibility → Read & Speak → Voices).
+// Uses the device's own Dutch voice. Safari on iPhone only exposes the basic "compact" voices.
 
 const canSynth = 'speechSynthesis' in window;
 let dutchVoice = null;
@@ -126,12 +126,19 @@ let activeSpeakBtn = null;
 
 const cleanSpeech = (text) => text.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
 
-// Prefer high-quality Dutch voices (iOS Enhanced/Premium/Siri, Edge "Natural", Google).
+// Prefer high-quality Dutch voices (iOS Enhanced/Premium/Siri, Edge "Natural", Google),
+// unless a voice was chosen on the Lists screen.
+const dutchVoices = () => (canSynth ? speechSynthesis.getVoices().filter((v) => /^nl/i.test(v.lang)) : []);
+let onVoicesChanged = null;
+
 function pickDutchVoice() {
     const score = (v) => (/^nl[-_]NL/i.test(v.lang) ? 2 : 1)
         + (/natural|neural|online|google|premium|enhanced|siri/i.test(v.name) ? 5 : 0);
-    const dutch = speechSynthesis.getVoices().filter((v) => /^nl/i.test(v.lang));
-    dutchVoice = dutch.sort((a, b) => score(b) - score(a))[0] || null;
+    const dutch = dutchVoices();
+    const chosen = localStorage.getItem('voice');
+    dutchVoice = dutch.find((v) => v.voiceURI === chosen)
+        || dutch.sort((a, b) => score(b) - score(a))[0] || null;
+    onVoicesChanged?.();
 }
 
 if (canSynth) {
@@ -334,7 +341,7 @@ const progressBar = (fraction, extraClass = '') => el('div', { class: `progress 
 async function renderLists(view) {
     await loadLists();
     if (!state.lists.length) {
-        view.append(emptyState('No vocabulary yet. Upload a PDF word list, or restore a backup below.'), backupCard());
+        view.append(emptyState('No vocabulary yet. Upload a PDF word list, or restore a backup below.'), voiceCard(), backupCard());
         return;
     }
     const words = store.words();
@@ -384,7 +391,35 @@ async function renderLists(view) {
                 el('button', { class: 'btn small', type: 'button', onclick: () => browse(list.id) }, 'Words'),
                 el('button', { class: 'btn small primary', type: 'button', onclick: () => study(list.id) }, 'Study'))));
     }
-    view.append(backupCard());
+    view.append(voiceCard(), backupCard());
+}
+
+/* ---------- Voice ---------- */
+
+function voiceCard() {
+    const select = el('select', { 'aria-label': 'Dutch voice' });
+    const testBtn = el('button', { class: 'btn small', type: 'button', onclick: () => speak('Goedemorgen! Hoe gaat het met je?', testBtn) }, 'Test');
+    const fill = () => {
+        const chosen = localStorage.getItem('voice') || '';
+        const voices = dutchVoices();
+        select.replaceChildren(
+            el('option', { value: '', text: 'Automatic' }),
+            ...voices.map((v) => el('option', { value: v.voiceURI, text: `${v.name} (${v.lang})` })));
+        select.value = voices.some((v) => v.voiceURI === chosen) ? chosen : '';
+    };
+    select.addEventListener('change', () => {
+        if (select.value) localStorage.setItem('voice', select.value); else localStorage.removeItem('voice');
+        pickDutchVoice();
+        speak('Goedemorgen! Hoe gaat het met je?', testBtn);
+    });
+    onVoicesChanged = fill; // voices load asynchronously on iPhone
+    fill();
+    return el('section', { class: 'card backup-card' },
+        el('h2', { text: 'Dutch voice' }),
+        el('p', { class: 'muted small-print', text: canSynth
+            ? 'Choose the voice used for pronunciation. iPhone only lets web apps use its basic voices, so Enhanced voices from Settings don\'t appear here.'
+            : 'This browser has no speech support.' }),
+        el('div', { class: 'study-row' }, select, testBtn));
 }
 
 /* ---------- Backup ---------- */
