@@ -92,7 +92,7 @@ function wordPicker(words) {
 }
 
 /* ---------- Pronunciation ---------- */
-// Uses the device's own Dutch voice (on iPhone: Settings → Accessibility → Spoken Content → Voices).
+// Uses the device's own Dutch voice (on iPhone: Settings → Accessibility → Read & Speak → Voices).
 
 const canSynth = 'speechSynthesis' in window;
 let dutchVoice = null;

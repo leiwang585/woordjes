@@ -86,8 +86,9 @@ offline later. Words without a suitable sentence show none.
 ## Pronunciation
 
 Words are spoken with the device's own Dutch voice. On iPhone you get a much better voice by
-downloading one: **Settings → Accessibility → Spoken Content → Voices → Dutch**, then pick an
-"Enhanced" or "Premium" voice. Turn off silent mode to hear it.
+downloading one: **Settings → Accessibility → Read & Speak → Voices → Dutch** (on iOS 18 and
+earlier this is called **Spoken Content**). Tap the download icon next to an "Enhanced" voice,
+then restart the app. Turn off silent mode to hear it.
 
 ## Project layout
 
