@@ -2,3 +2,7 @@
 __pycache__/
 data/
 *.pem
+
+# personal data: never publish
+*.pdf
+woordjes-backup*.json

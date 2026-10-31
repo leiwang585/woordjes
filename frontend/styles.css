@@ -179,7 +179,6 @@ body {
 /* ---------- Controls ---------- */
 input[type="text"],
 input[type="search"],
-input[type="password"],
 select {
     width: 100%;
     font-size: 16px;
@@ -265,40 +264,13 @@ input[type="search"] {
     border-radius: 12px;
 }
 
-.btn.link {
-    background: none;
-    color: var(--orange);
-    width: 100%;
-    min-height: 44px;
-    margin-top: 6px;
-}
-
 .small-print {
     font-size: .85rem;
-    margin: 0;
+    margin: 0 0 12px;
 }
 
-.account-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+.backup-card {
     margin-top: 22px;
-    padding: 0 4px;
-}
-
-.auth-hero {
-    text-align: center;
-    margin-bottom: 16px;
-}
-
-.auth-hero p {
-    margin: 6px 0 0;
-    font-weight: 600;
-}
-
-.auth-logo {
-    font-size: 2.6rem;
 }
 
 .chip {

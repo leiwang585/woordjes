@@ -1,7 +1,6 @@
 'use strict';
 
 const state = {
-    user: null,
     lists: [],
     listWords: [], // every word in the selected list
     words: [], // listWords filtered by the selected chapter
@@ -92,7 +91,63 @@ function wordPicker(words) {
     return () => seq[(i = (i + 1) % seq.length)];
 }
 
-/* SPEECH_PLACEHOLDER */
+/* ---------- Pronunciation ---------- */
+// Uses the device's own Dutch voice (on iPhone: Settings → Accessibility → Spoken Content → Voices).
+
+const canSynth = 'speechSynthesis' in window;
+let dutchVoice = null;
+let activeSpeakBtn = null;
+
+const cleanSpeech = (text) => text.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// Prefer high-quality Dutch voices (iOS Enhanced/Premium/Siri, Edge "Natural", Google).
+function pickDutchVoice() {
+    const score = (v) => (/^nl[-_]NL/i.test(v.lang) ? 2 : 1)
+        + (/natural|neural|online|google|premium|enhanced|siri/i.test(v.name) ? 5 : 0);
+    const dutch = speechSynthesis.getVoices().filter((v) => /^nl/i.test(v.lang));
+    dutchVoice = dutch.sort((a, b) => score(b) - score(a))[0] || null;
+}
+
+if (canSynth) {
+    pickDutchVoice();
+    speechSynthesis.addEventListener('voiceschanged', pickDutchVoice);
+}
+
+function setSpeaking(on) {
+    activeSpeakBtn?.classList.toggle('speaking', on);
+    if (!on) activeSpeakBtn = null;
+}
+
+function stopSpeaking() {
+    if (canSynth) speechSynthesis.cancel();
+    setSpeaking(false);
+}
+
+function speak(text, btn = null) {
+    const t = cleanSpeech(text);
+    if (!t || !canSynth) return;
+    stopSpeaking();
+    activeSpeakBtn = btn;
+    setSpeaking(true);
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'nl-NL';
+    if (dutchVoice) u.voice = dutchVoice;
+    u.rate = 0.85;
+    u.onend = u.onerror = () => { if (speak.current === u) setSpeaking(false); };
+    speak.current = u; // keep a reference so the utterance isn't garbage-collected mid-speech
+    speechSynthesis.speak(u);
+}
+
+// iOS only allows speech after a user gesture; unlock it on the first tap.
+{
+    const unlock = () => {
+        if (canSynth) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+        document.removeEventListener('touchend', unlock, true);
+        document.removeEventListener('click', unlock, true);
+    };
+    document.addEventListener('touchend', unlock, true);
+    document.addEventListener('click', unlock, true);
+}
 
 const SPEAKER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path class="wave1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 
@@ -107,16 +162,23 @@ function speakButton(getText, extraClass = '') {
 
 function recordResult(word, correct) {
     if (correct) word.correct++; else word.incorrect++;
-    api(`/api/words/${word.id}/result`, sendJson('POST', { correct })).catch(() => { });
+    try {
+        store.recordResult(word.id, correct);
+    } catch (e) { toast(e.message); }
 }
 
-// Fetches (and caches on the word) its example sentence; example_nl is '' when none exists.
+// Looks up (and saves) a word's example sentence; example_nl is '' when none exists.
 const exampleRequests = new Map();
 function loadExample(word) {
     if (word.example_nl != null) return Promise.resolve(word);
     if (!exampleRequests.has(word.id)) {
-        exampleRequests.set(word.id, api(`/api/words/${word.id}/example`)
-            .then((data) => Object.assign(word, data))
+        exampleRequests.set(word.id, findExample(word.dutch)
+            .then((found) => {
+                const [nl, en] = found || ['', ''];
+                Object.assign(word, { example_nl: nl, example_en: en });
+                store.setExample(word.id, nl, en);
+                return word;
+            })
             .catch(() => word) // offline or service down: try again next time
             .finally(() => exampleRequests.delete(word.id)));
     }
@@ -173,7 +235,7 @@ function checkAnswer(given, target) {
 /* ---------- Data ---------- */
 
 async function loadLists() {
-    state.lists = await api('/api/lists');
+    state.lists = store.lists();
     if (state.listId !== 'all' && !state.lists.some((l) => String(l.id) === state.listId)) {
         setList('all');
     }
@@ -181,8 +243,7 @@ async function loadLists() {
 }
 
 async function loadWords() {
-    const q = state.listId === 'all' ? '' : `?list_id=${encodeURIComponent(state.listId)}`;
-    state.listWords = await api(`/api/words${q}`);
+    state.listWords = store.words(state.listId === 'all' ? null : Number(state.listId));
     const chapters = [...new Set(state.listWords.map((w) => w.chapter).filter(Boolean))].sort(collator.compare);
     if (state.chapter !== 'all' && !chapters.includes(state.chapter)) setChapter('all');
     state.words = state.chapter === 'all'
@@ -246,10 +307,10 @@ const progressBar = (fraction, extraClass = '') => el('div', { class: `progress 
 async function renderLists(view) {
     await loadLists();
     if (!state.lists.length) {
-        view.append(emptyState('No vocabulary yet. Upload a PDF word list to get started.'), accountCard());
+        view.append(emptyState('No vocabulary yet. Upload a PDF word list, or restore a backup below.'), backupCard());
         return;
     }
-    const words = await api('/api/words');
+    const words = store.words();
     const stats = new Map();
     for (const w of words) {
         const s = stats.get(w.list_id) || { total: 0, learned: 0 };
@@ -274,33 +335,82 @@ async function renderLists(view) {
 
     for (const list of state.lists) {
         const s = stats.get(list.id) || { total: 0, learned: 0 };
-        const by = list.mine ? 'by you' : list.owner ? `by ${list.owner}` : '';
         view.append(el('div', { class: 'list-card' },
             el('div', { class: 'list-top' },
                 el('div', { class: 'avatar', style: `--hue:${(list.id * 67) % 360}`, text: list.name.trim()[0]?.toUpperCase() || '?' }),
                 el('div', { class: 'info' },
                     el('div', { class: 'name', text: list.name }),
-                    el('div', { class: 'muted', text: [`${s.learned} / ${list.word_count} learned`, by, list.created_at.slice(0, 10)].filter(Boolean).join(' · ') })),
-                list.mine ? el('button', {
+                    el('div', { class: 'muted', text: `${s.learned} / ${list.word_count} learned · ${list.created_at.slice(0, 10)}` })),
+                el('button', {
                     class: 'icon-btn', type: 'button', 'aria-label': `Delete ${list.name}`,
-                    onclick: async () => {
-                        if (!confirm(`Delete "${list.name}" and all its words for everyone?`)) return;
+                    onclick: () => {
+                        if (!confirm(`Delete "${list.name}" and all its words?`)) return;
                         try {
-                            await api(`/api/lists/${list.id}`, { method: 'DELETE' });
+                            store.deleteList(list.id);
                             toast('List deleted');
                             router();
                         } catch (e) { toast(e.message); }
                     },
-                }, '×') : null),
+                }, '×')),
             progressBar(s.total ? s.learned / s.total : 0),
             el('div', { class: 'row' },
                 el('button', { class: 'btn small', type: 'button', onclick: () => browse(list.id) }, 'Words'),
                 el('button', { class: 'btn small primary', type: 'button', onclick: () => study(list.id) }, 'Study'))));
     }
-    view.append(accountCard());
+    view.append(backupCard());
 }
 
-/* BACKUP_PLACEHOLDER */
+/* ---------- Backup ---------- */
+
+function backupCard() {
+    const fileInput = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        fileInput.value = '';
+        if (!file) return;
+        try {
+            const backup = JSON.parse(await file.text());
+            const names = (backup?.lists || []).map((l) => l?.name).filter(Boolean);
+            const existing = new Set(store.lists().map((l) => l.name));
+            const replaced = names.filter((n) => existing.has(n));
+            if (replaced.length && !confirm(`Replace ${replaced.length === 1 ? `"${replaced[0]}"` : `${replaced.length} lists`} (including progress) with the version from the backup?`)) return;
+            const { lists, words } = store.importData(backup);
+            toast(`Restored ${lists} ${lists === 1 ? 'list' : 'lists'} (${words} words)`);
+            setList('all');
+            router();
+        } catch (e) {
+            toast(e instanceof SyntaxError ? 'This is not a Woordjes backup file' : e.message);
+        }
+    });
+
+    return el('section', { class: 'card backup-card' },
+        el('h2', { text: 'Backup & restore' }),
+        el('p', { class: 'muted small-print', text: 'Your words and progress are stored only on this device. Save a backup now and then (e.g. to iCloud Drive) so you never lose them, or to move them to another phone.' }),
+        el('div', { class: 'row' },
+            el('button', { class: 'btn small', type: 'button', onclick: exportBackup }, 'Save backup'),
+            el('button', { class: 'btn small', type: 'button', onclick: () => fileInput.click() }, 'Restore backup')),
+        fileInput);
+}
+
+async function exportBackup() {
+    const json = JSON.stringify(store.exportData(), null, 1);
+    const name = `woordjes-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const file = new File([json], name, { type: 'application/json' });
+    // iPhone: the share sheet offers "Save to Files", AirDrop, etc.
+    if (navigator.canShare?.({ files: [file] })) {
+        try {
+            await navigator.share({ files: [file], title: 'Woordjes backup' });
+            return;
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+        }
+    }
+    const a = el('a', { href: URL.createObjectURL(file), download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
 
 async function renderUpload(view) {
     await loadLists();
@@ -315,12 +425,23 @@ async function renderUpload(view) {
         if (!file) return;
         status.textContent = `Reading ${file.name}…`;
         preview.hidden = true;
-        const form = new FormData();
-        form.append('file', file);
         try {
-            const data = await api('/api/upload', { method: 'POST', body: form });
-            status.textContent = `Found ${data.pairs.length} word pairs. Review them below.`;
-            showPreview(data);
+            if (file.size > 10 * 1024 * 1024) throw new Error('PDF is larger than 10 MB');
+            const data = new Uint8Array(await file.arrayBuffer());
+            if (new TextDecoder().decode(data.slice(0, 4)) !== '%PDF') throw new Error('File is not a valid PDF');
+            const { extractPairs } = await import('./parser.js');
+            let pairs;
+            try {
+                pairs = await extractPairs(data);
+            } catch {
+                throw new Error('Could not read this PDF');
+            }
+            if (!pairs.length) {
+                throw new Error("No word pairs found. Use one pair per line, e.g. 'de hond - the dog' or a two-column table. Scanned (image-only) PDFs are not supported.");
+            }
+            const name = file.name.replace(/\.pdf$/i, '').trim().slice(0, 100) || 'Vocabulary';
+            status.textContent = `Found ${pairs.length} word pairs. Review them below.`;
+            showPreview({ suggested_name: name, pairs });
         } catch (e) {
             status.textContent = e.message;
         } finally {
@@ -361,7 +482,7 @@ async function renderUpload(view) {
             if (!selected.length) return toast('No words selected');
             btn.disabled = true;
             try {
-                const list = await api('/api/lists', sendJson('POST', { name: nameInput.value.trim(), pairs: selected }));
+                const list = store.createList(nameInput.value.trim(), selected);
                 toast(`Saved ${list.word_count} words`);
                 setList(list.id);
                 location.hash = '#words';
@@ -399,11 +520,10 @@ async function renderUpload(view) {
 }
 
 function renderManualAdd() {
-    const mine = state.lists.filter((l) => l.mine);
     const listSelect = el('select', { 'aria-label': 'List' },
-        ...mine.map((l) => el('option', { value: String(l.id), text: l.name })),
+        ...state.lists.map((l) => el('option', { value: String(l.id), text: l.name })),
         el('option', { value: 'new', text: '+ New list…' }));
-    if (mine.some((l) => String(l.id) === state.listId)) listSelect.value = state.listId;
+    if (state.lists.some((l) => String(l.id) === state.listId)) listSelect.value = state.listId;
     const newName = el('input', { type: 'text', placeholder: 'New list name', maxlength: '100' });
     const nl = el('input', { type: 'text', placeholder: 'Dutch (e.g. de hond)', maxlength: '200', autocapitalize: 'off' });
     const en = el('input', { type: 'text', placeholder: 'English (e.g. the dog)', maxlength: '200', autocapitalize: 'off' });
@@ -423,7 +543,7 @@ function renderManualAdd() {
             if (listSelect.value === 'new') {
                 const name = newName.value.trim();
                 if (!name) return toast('Enter a list name');
-                const list = await api('/api/lists', sendJson('POST', { name, pairs: [pair] }));
+                const list = store.createList(name, [pair]);
                 setList(list.id);
                 await loadLists();
                 listSelect.prepend(el('option', { value: String(list.id), text: list.name }));
@@ -431,7 +551,7 @@ function renderManualAdd() {
                 newName.value = '';
                 syncNew();
             } else {
-                await api('/api/words', sendJson('POST', { list_id: Number(listSelect.value), ...pair }));
+                store.addWord(Number(listSelect.value), pair);
             }
             toast(`Added "${pair.dutch}"`);
             nl.value = '';
@@ -440,10 +560,7 @@ function renderManualAdd() {
         } catch (err) { toast(err.message); }
     });
 
-    return el('section', { class: 'card' },
-        el('h2', { text: 'Add a word manually' }),
-        el('p', { class: 'muted small-print', text: 'You can add words to lists you created.' }),
-        form);
+    return el('section', { class: 'card' }, el('h2', { text: 'Add a word manually' }), form);
 }
 
 async function renderWords(view) {
@@ -458,7 +575,6 @@ async function renderWords(view) {
     const count = el('h2');
     // Shuffling a word list isn't useful to browse, so Random shows it sequentially here.
     let words = orderWords(state.words, state.order === 'random' ? 'seq' : state.order);
-    const myLists = new Set(state.lists.filter((l) => l.mine).map((l) => l.id));
 
     const draw = () => {
         const q = normalize(search.value);
@@ -473,16 +589,16 @@ async function renderWords(view) {
                 el('span', { class: 'en', text: w.english })),
             w.chapter ? el('span', { class: 'chapter-tag', title: `Chapter ${w.chapter}`, text: `Ch ${w.chapter}` }) : null,
             el('span', { class: `dot ${isLearned(w) ? 'learned' : w.incorrect > w.correct ? 'weak' : ''}`, title: `${w.correct} right · ${w.incorrect} wrong` }),
-            myLists.has(w.list_id) ? el('button', {
+            el('button', {
                 class: 'icon-btn', type: 'button', 'aria-label': `Delete ${w.dutch}`,
-                onclick: async () => {
+                onclick: () => {
                     try {
-                        await api(`/api/words/${w.id}`, { method: 'DELETE' });
+                        store.deleteWord(w.id);
                         words = words.filter((x) => x.id !== w.id);
                         draw();
                     } catch (e) { toast(e.message); }
                 },
-            }, '×') : null)));
+            }, '×'))));
     };
     search.addEventListener('input', draw);
     draw();
@@ -562,10 +678,7 @@ async function renderCards(view) {
         counter.textContent = `${index + 1} / ${deck.length}`;
         progress.firstChild.style.width = `${(index / deck.length) * 100}%`;
         if (nlFirst) speak(w.dutch, cardSpeaker);
-        if (deck[index + 1]) {
-            prefetchSpeech(deck[index + 1].dutch);
-            loadExample(deck[index + 1]);
-        }
+        if (deck[index + 1]) loadExample(deck[index + 1]);
     }
 
     function next(known) {
@@ -781,14 +894,12 @@ const routes = {
 let renderToken = 0;
 
 async function router() {
+    const name = routes[location.hash.slice(1)] ? location.hash.slice(1) : 'lists';
+    const route = routes[name];
     const token = ++renderToken;
     stopSpeaking();
-    const signedIn = Boolean(state.user);
-    const name = !signedIn ? 'auth' : routes[location.hash.slice(1)] ? location.hash.slice(1) : 'lists';
-    const route = signedIn ? routes[name] : { title: 'Woordjes', render: renderAuth };
 
     document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
-    $('.tabbar').hidden = !signedIn;
     $('#title').textContent = route.title;
     $('#study-bar').hidden = !route.study;
     renderDirection();
@@ -827,16 +938,11 @@ $('#chapter-select').addEventListener('change', (e) => {
 });
 
 window.addEventListener('hashchange', router);
+router();
 
-(async () => {
-    try {
-        state.user = await api('/api/auth/me');
-    } catch {
-        state.user = null;
-    }
-    router();
-})();
+// Ask the browser not to clear this app's data when storage runs low.
+navigator.storage?.persist?.().catch(() => { });
 
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { }));
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => { }));
 }

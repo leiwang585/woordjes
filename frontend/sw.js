@@ -1,13 +1,16 @@
-const CACHE = 'woordjes-v8';
+const CACHE = 'woordjes-v9';
+// Relative to this file, so the app works from any folder (e.g. GitHub Pages /repo-name/).
 const SHELL = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/manifest.json',
-    '/icons/icon-180.png',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png',
+    './',
+    'index.html',
+    'styles.css',
+    'store.js',
+    'app.js',
+    'parser.js',
+    'manifest.json',
+    'icons/icon-180.png',
+    'icons/icon-192.png',
+    'icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -22,35 +25,13 @@ self.addEventListener('activate', (event) => {
     );
 });
 
+// Stale-while-revalidate for the app's own files (pdf.js is cached the first time it's used).
+// Cross-origin requests (example sentences from Tatoeba) go straight to the network.
 self.addEventListener('fetch', (event) => {
     const { request } = event;
-    const url = new URL(request.url);
-    if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-    // Audio uses range requests; let the browser's HTTP cache handle it directly.
-    if (url.pathname === '/api/tts') return;
-
-    if (url.pathname.startsWith('/api/')) {
-        // Network first so data is fresh; cached copy lets you study offline.
-        event.respondWith(
-            fetch(request)
-                .then((res) => {
-                    if (res.ok) {
-                        const copy = res.clone();
-                        caches.open(CACHE).then((c) => c.put(request, copy));
-                    }
-                    return res;
-                })
-                .catch(() => caches.match(request).then((r) => r || new Response(
-                    JSON.stringify({ detail: 'You are offline' }),
-                    { status: 503, headers: { 'Content-Type': 'application/json' } }
-                )))
-        );
-        return;
-    }
-
-    // App shell: stale-while-revalidate.
+    if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
     event.respondWith(
-        caches.match(request).then((cached) => {
+        caches.match(request, { ignoreSearch: true }).then((cached) => {
             const network = fetch(request)
                 .then((res) => {
                     if (res.ok) {
@@ -59,7 +40,7 @@ self.addEventListener('fetch', (event) => {
                     }
                     return res;
                 })
-                .catch(() => cached || caches.match('/index.html'));
+                .catch(() => cached || caches.match('index.html'));
             return cached || network;
         })
     );

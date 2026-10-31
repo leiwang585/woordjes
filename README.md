@@ -1,34 +1,60 @@
 # Woordjes – Dutch Vocabulary Trainer
 
-FastAPI + SQLite backend, vanilla HTML/CSS/JS frontend, installable as a PWA on iPhone.
+A Dutch vocabulary app (flashcards, multiple choice, typing practice) that runs **entirely on
+your phone**. It's a static web app (HTML/CSS/JS) that you install from Safari with
+"Add to Home Screen". There's no server and no account: your words and progress are stored on
+the device, and the app works offline.
 
-## Run
+## Install on iPhone (free, via GitHub Pages)
+
+1. Create a free [GitHub](https://github.com) account and a new **public** repository,
+   e.g. `woordjes`. GitHub Pages is free only for public repositories, so only the app's code
+   goes there; your word lists and progress stay on your phone.
+2. Push this project to the repository (branch `main`).
+3. In the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+   The workflow in `.github/workflows/pages.yml` publishes the `frontend/` folder. After a
+   minute the app is live at `https://<your-username>.github.io/woordjes/`.
+4. On the iPhone, open that address in **Safari**, then tap **Share → Add to Home Screen**.
+5. Open **Woordjes** from the Home Screen and add words: upload a PDF (from Files/iCloud
+   Drive/OneDrive) or restore a backup.
+
+Updates: push to `main`. The installed app picks up the new version the next time it's opened
+(sometimes it takes opening it twice).
+
+## Your data
+
+- Everything is stored in the app's local storage on the device. Each phone or browser has its
+  own words and progress.
+- **Make backups**: Lists → **Backup & restore → Save backup** opens the share sheet. Choose
+  "Save to Files" (e.g. iCloud Drive). **Restore backup** loads such a file. Lists in the
+  backup replace lists with the same name; other lists are kept.
+- The same backup file moves your data to another phone, or shares a list with a friend.
+- Deleting the Home Screen app also deletes its data, so save a backup first.
+
+### Moving data from the old server version
+
+Earlier versions stored data in a server database (`data/vocab.db`). To turn that into a
+backup file, including chapters, saved example sentences and one account's progress:
 
 ```powershell
-cd dutch-vocab-app
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn backend.main:app --host 0.0.0.0 --port 8000
+.\.venv\Scripts\python.exe tools\export_backup.py woordjes-backup.json [--user USERNAME]
 ```
 
-Open http://localhost:8000. The database is created at `data/vocab.db`.
+Then put the file on the phone (iCloud Drive, OneDrive, AirDrop…) and use **Restore backup**.
 
-## Accounts
+## Run locally
 
-Everyone signs in with a username and password (sign-up is open to anyone with the URL).
+```powershell
+python -m http.server 8000 --directory frontend
+```
 
-- **Word lists are shared**: every user can study every list. Only the person who created a
-  list can add words to it, delete words from it or delete it.
-- **Progress is personal**: right/wrong counts and "learned" status are stored per user.
-- **Existing data**: in a database from before accounts existed, the first account created
-  takes over all existing lists and progress.
-- Passwords are stored as salted PBKDF2-SHA256 hashes. Sessions last a year (so the iPhone
-  home-screen app stays signed in) and repeated failed sign-ins are rate-limited.
+Open http://localhost:8000. Offline mode (the service worker) only works on `localhost` or
+over HTTPS.
 
 ## PDF format
 
-Text-based PDFs with one pair per line (Dutch first), e.g.
+PDFs are read on the device with [pdf.js](https://mozilla.github.io/pdf.js/). Text-based PDFs
+with one pair per line (Dutch first), e.g.
 
 ```
 de hond - the dog
@@ -53,37 +79,22 @@ The study bar on the Words/Cards/Quiz/Type screens lets you choose:
 ## Example sentences
 
 When you flip a flashcard, the back shows a Dutch example sentence with its English translation.
-Sentences come from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR). Each one is looked up the
-first time a word is shown and then saved in the database, so it also works offline later.
-Words without a suitable sentence show none.
+Sentences come from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR). The app looks one up the
+first time a word is shown (this needs internet) and saves it on the device, so it also works
+offline later. Words without a suitable sentence show none.
 
-## iPhone
+## Pronunciation
 
-1. Find your PC's IP (`ipconfig`) and open `http://<PC-IP>:8000` in Safari on the same Wi-Fi
-   (allow Python through Windows Firewall if asked).
-2. Share → **Add to Home Screen**.
+Words are spoken with the device's own Dutch voice. On iPhone you get a much better voice by
+downloading one: **Settings → Accessibility → Spoken Content → Voices → Dutch**, then pick an
+"Enhanced" or "Premium" voice. Turn off silent mode to hear it.
 
-Offline caching (service worker) requires HTTPS. Either use a tunnel such as
-`cloudflared tunnel --url http://localhost:8000`, or create a trusted certificate with
-[mkcert](https://github.com/FiloSottile/mkcert) (install its root CA on the iPhone) and run:
+## Project layout
 
-```powershell
-uvicorn backend.main:app --host 0.0.0.0 --port 8443 --ssl-keyfile key.pem --ssl-certfile cert.pem
-```
-
-## Deploy to Railway
-
-Config lives in `railway.json` (Railpack build, uvicorn start command, health check) and
-`.python-version`. SQLite needs a persistent volume, otherwise data is wiped on every deploy.
-
-```bash
-npm i -g @railway/cli
-railway login
-railway init                                # create a new project
-railway up --detach                         # first deploy, creates the service
-railway volume add --mount-path /data       # persistent storage for SQLite
-railway variables --set DATA_DIR=/data
-railway domain                              # generate a public https URL
-```
-
-Later deploys: `railway up`. The Railway URL is HTTPS, so the full PWA (offline mode) works on iPhone.
+- `frontend/` – the app (published to GitHub Pages)
+  - `store.js` – on-device storage, backup/restore, example-sentence lookup
+  - `parser.js` – PDF word-list parser (loads `vendor/pdfjs/`, Apache-2.0)
+  - `app.js`, `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
+- `tools/export_backup.py` – converts the old server database into a backup file
+- `backend/`, `requirements.txt`, `railway.json` – the earlier server version (FastAPI, with
+  accounts). The current app doesn't use it; it's only needed by `tools/export_backup.py`.
