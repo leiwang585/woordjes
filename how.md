@@ -58,6 +58,7 @@ const words = list.filter((w) => w.known);   // words = [w for w in lst if w.kno
 | [manifest.json](frontend/manifest.json) | Tells the phone the app's name, icon and colours for "Add to Home Screen" | Like `setup.py` metadata |
 | `frontend/icons/` | Home Screen icons | — |
 | `frontend/demo/` | The built-in **Basic 100** and **Verb 100** demo lists (backup files) and their natural-voice packs, installed on first launch | Like fixture data shipped with a package |
+| [pictures.js](frontend/pictures.js) | Cartoon pictures for the back of flashcards: drawn colors and shapes (SVG), dots for numbers, emoji for the rest. Looked up by the Dutch word, so any list with those words gets them. | A dict from word to image |
 
 ### How `app.js` builds screens
 

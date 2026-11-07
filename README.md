@@ -108,6 +108,11 @@ The app comes with two built-in lists, each with natural-voice clips for all its
 - **Verb 100**: 100 common verbs in 9 chapters: basic verbs, modal verbs, daily routine,
   movement, talking, senses & thinking, home & play, feelings, and greetings.
 
+Every Basic 100 word has a cartoon picture on the back of its flashcard: drawn colors and shapes
+(with faces), dots for the numbers 0–10, and emoji for animals, food and household items. They come
+from [frontend/pictures.js](frontend/pictures.js) and are matched by the Dutch word, so the same
+words in your own lists get them too.
+
 Both are added automatically the first time the app is opened on a device with no lists.
 Devices that already have lists, or where a demo list was deleted, can add it under
 **Lists → Demo lists**. That card also offers an **Update** when a demo list on the device is an
@@ -145,7 +150,7 @@ use the device voice; make a new pack from a fresh backup to include them.
 - `frontend/` – the app (published to GitHub Pages)
   - `store.js` – on-device storage, backup/restore, example-sentence lookup
   - `parser.js` – PDF word-list parser (loads `vendor/pdfjs/`, Apache-2.0)
-  - `app.js`, `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
+  - `app.js`, `pictures.js` (flashcard pictures), `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
   - `demo/` – the built-in Basic 100 and Verb 100 lists and their natural-voice packs
 - `tools/export_backup.py` – converts the old server database into a backup file
 - `tools/make_audio_pack.py` – makes a natural-voice pack from a backup file

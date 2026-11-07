@@ -842,8 +842,9 @@ async function renderCards(view) {
     const exampleNl = el('span', { class: 'example-nl', lang: 'nl' });
     const exampleEn = el('span', { class: 'example-en' });
     const backExample = el('div', { class: 'face-example', hidden: true }, exampleNl, exampleEn);
+    const backPicture = el('div', { class: 'face-picture', hidden: true });
     const front = el('div', { class: 'face front' }, frontLabel, frontWord);
-    const back = el('div', { class: 'face back' }, backLabel, backWord, backExample);
+    const back = el('div', { class: 'face back' }, backLabel, backPicture, backWord, backExample);
     let backWordId = null;
     const renderExample = (w) => {
         if (w.id !== backWordId) return; // the card moved on meanwhile
@@ -986,6 +987,8 @@ async function renderCards(view) {
         setTimeout(() => {
             backLabel.textContent = langLabel(!nlFirst);
             backWord.textContent = answerOf(w);
+            backPicture.innerHTML = pictureFor(w.dutch); // pictures.js returns trusted, built-in markup
+            backPicture.hidden = !backPicture.innerHTML;
             backWordId = w.id;
             renderExample(w);
         }, wasFlipped ? 250 : 0);
