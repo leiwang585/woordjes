@@ -57,6 +57,7 @@ const words = list.filter((w) => w.known);   // words = [w for w in lst if w.kno
 | [sw.js](frontend/sw.js) | **Service worker**: keeps a copy of the app on the phone so it works offline | A local cache that intercepts downloads |
 | [manifest.json](frontend/manifest.json) | Tells the phone the app's name, icon and colours for "Add to Home Screen" | Like `setup.py` metadata |
 | `frontend/icons/` | Home Screen icons | — |
+| `frontend/demo/` | The built-in **Basic 100** demo list (a backup file) and its natural-voice pack, installed on first launch | Like fixture data shipped with a package |
 
 ### How `app.js` builds screens
 

@@ -158,11 +158,13 @@ const audio = new Audio();
 let audioUrl = null;
 let speakToken = 0;
 let voicePackSize = 0;
+let onVoicePackChanged = null; // the voice card's status updates when a pack finishes installing
 audio.addEventListener('ended', () => setSpeaking(false));
 
 const refreshVoicePack = () => audioStore.count()
     .then((n) => { voicePackSize = n; })
-    .catch(() => { voicePackSize = 0; });
+    .catch(() => { voicePackSize = 0; })
+    .finally(() => onVoicePackChanged?.());
 
 function stopSpeaking() {
     speakToken++;
@@ -303,9 +305,11 @@ function renderChapterSelect(chapters) {
     const select = $('#chapter-select');
     const counts = new Map();
     for (const w of state.listWords) counts.set(w.chapter, (counts.get(w.chapter) || 0) + 1);
+    // Numbered chapters read "Ch. 3"; named ones (like the demo list's) are shown as they are.
+    const label = (c) => (/^\d+$/.test(c) ? `Ch. ${c}` : c);
     select.replaceChildren(
         el('option', { value: 'all', text: 'All chapters' }),
-        ...chapters.map((c) => el('option', { value: c, text: `Ch. ${c} (${counts.get(c)})` })));
+        ...chapters.map((c) => el('option', { value: c, text: `${label(c)} (${counts.get(c)})` })));
     select.value = state.chapter;
     select.hidden = !chapters.length;
 }
@@ -343,7 +347,7 @@ const progressBar = (fraction, extraClass = '') => el('div', { class: `progress 
 async function renderLists(view) {
     await loadLists();
     if (!state.lists.length) {
-        view.append(emptyState('No vocabulary yet. Upload a PDF word list, or restore a backup below.'), voiceCard(), backupCard());
+        view.append(...[emptyState('No vocabulary yet. Upload a PDF word list, or restore a backup below.'), demoCard(), voiceCard(), backupCard()].filter(Boolean));
         return;
     }
     const words = store.words();
@@ -393,7 +397,7 @@ async function renderLists(view) {
                 el('button', { class: 'btn small', type: 'button', onclick: () => browse(list.id) }, 'Words'),
                 el('button', { class: 'btn small primary', type: 'button', onclick: () => study(list.id) }, 'Study'))));
     }
-    view.append(voiceCard(), backupCard());
+    view.append(...[demoCard(), voiceCard(), backupCard()].filter(Boolean));
 }
 
 /* ---------- Voice ---------- */
@@ -463,6 +467,7 @@ function voiceCard() {
         }
     });
     syncPack();
+    onVoicePackChanged = syncPack;
 
     return el('section', { class: 'card backup-card' },
         el('h2', { text: 'Dutch voice' }),
@@ -475,6 +480,64 @@ function voiceCard() {
         el('div', { style: 'margin-top:14px' }, packStatus),
         el('div', { class: 'row' }, importBtn, removeBtn),
         packInput);
+}
+
+/* ---------- Built-in demo list ---------- */
+
+const DEMO = { name: 'Basic 100', words: 'demo/basic-100.json', voice: 'demo/basic-100-voice.json' };
+
+async function fetchJson(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Could not download the demo list');
+    return res.json();
+}
+
+// Adds the demo list, then installs its natural-voice clips in the background.
+async function addDemoList() {
+    let backup;
+    try {
+        backup = await fetchJson(DEMO.words);
+    } catch {
+        throw new Error('Could not download the demo list. Are you online?');
+    }
+    store.importData(backup);
+    localStorage.setItem('demoAdded', '1');
+    fetchJson(DEMO.voice)
+        .then((pack) => audioStore.importPack(pack))
+        .then(refreshVoicePack)
+        .catch(() => { /* the device voice is used instead */ });
+}
+
+// New users start with the demo list. Only once per device, so deleting it is respected.
+async function addDemoOnFirstRun() {
+    if (localStorage.getItem('demoAdded')) return;
+    if (store.lists().length) {
+        localStorage.setItem('demoAdded', '1'); // existing users can add it from the Lists screen
+        return;
+    }
+    await addDemoList();
+}
+
+function demoCard() {
+    if (store.lists().some((l) => l.name === DEMO.name)) return null;
+    const btn = el('button', {
+        class: 'btn small primary', type: 'button',
+        onclick: async () => {
+            btn.disabled = true;
+            try {
+                await addDemoList();
+                toast(`Added "${DEMO.name}"`);
+                router();
+            } catch (e) {
+                toast(e.message);
+                btn.disabled = false;
+            }
+        },
+    }, `Add ${DEMO.name}`);
+    return el('section', { class: 'card backup-card' },
+        el('h2', { text: `Demo list: ${DEMO.name}` }),
+        el('p', { class: 'muted small-print', text: '100 everyday words in 9 chapters (numbers, colors, shapes, playground, animals, household, common verbs, food and greetings), with a natural Dutch voice.' }),
+        el('div', { class: 'row' }, btn));
 }
 
 /* ---------- Backup ---------- */
@@ -1122,7 +1185,7 @@ $('#chapter-select').addEventListener('change', (e) => {
 });
 
 window.addEventListener('hashchange', router);
-refreshVoicePack().finally(router);
+addDemoOnFirstRun().catch(() => { }).then(refreshVoicePack).finally(router);
 
 // Ask the browser not to clear this app's data when storage runs low.
 navigator.storage?.persist?.().catch(() => { });

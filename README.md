@@ -15,7 +15,8 @@ the device, and the app works offline.
    The workflow in `.github/workflows/pages.yml` publishes the `frontend/` folder. After a
    minute the app is live at `https://<your-username>.github.io/woordjes/`.
 4. On the iPhone, open that address in **Safari**, then tap **Share → Add to Home Screen**.
-5. Open **Woordjes** from the Home Screen and add words: upload a PDF (from Files/iCloud
+5. Open **Woordjes** from the Home Screen. On a new device it starts with the built-in
+   **Basic 100** demo list (see below). Add your own words: upload a PDF (from Files/iCloud
    Drive/OneDrive) or restore a backup.
 
 Updates: push to `main`. The installed app picks up the new version the next time it's opened
@@ -98,6 +99,21 @@ Sentences come from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR). The app looks
 first time a word is shown (this needs internet) and saves it on the device, so it also works
 offline later. Words without a suitable sentence show none.
 
+## Demo list: Basic 100
+
+The app comes with a built-in demo list, **Basic 100**: 100 everyday words in 9 chapters
+(numbers 0–20, 100 and 1000; colors; shapes; playground; animals; household; common verbs;
+food & drink; greetings). It's added automatically the first time the app is opened on a device
+with no lists, together with natural-voice clips for all its words. Devices that already have
+lists, or where it was deleted, can add it under **Lists → Demo list → Add Basic 100**.
+
+The list is [frontend/demo/basic-100.json](frontend/demo/basic-100.json) (in backup format).
+After editing it, render its voice clips again:
+
+```powershell
+.\.venv\Scripts\python.exe tools\make_audio_pack.py frontend\demo\basic-100.json -o frontend\demo\basic-100-voice.json
+```
+
 ## Pronunciation
 
 Words are spoken with the device's own Dutch voice. Choose which one under
@@ -124,6 +140,7 @@ use the device voice; make a new pack from a fresh backup to include them.
   - `store.js` – on-device storage, backup/restore, example-sentence lookup
   - `parser.js` – PDF word-list parser (loads `vendor/pdfjs/`, Apache-2.0)
   - `app.js`, `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
+  - `demo/` – the built-in Basic 100 list and its natural-voice pack
 - `tools/export_backup.py` – converts the old server database into a backup file
 - `tools/make_audio_pack.py` – makes a natural-voice pack from a backup file
 - `backend/`, `requirements.txt`, `railway.json` – the earlier server version (FastAPI, with
