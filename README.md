@@ -16,7 +16,7 @@ the device, and the app works offline.
    minute the app is live at `https://<your-username>.github.io/woordjes/`.
 4. On the iPhone, open that address in **Safari**, then tap **Share → Add to Home Screen**.
 5. Open **Woordjes** from the Home Screen. On a new device it starts with the built-in
-   **Basic 100** and **Verb 100** demo lists (see below). Add your own words: upload a PDF (from Files/iCloud
+   **Basic 100**, **Verb 100** and **Noun 100** demo lists (see below). Add your own words: upload a PDF (from Files/iCloud
    Drive/OneDrive) or restore a backup.
 
 Updates: push to `main`. The installed app picks up the new version the next time it's opened
@@ -99,21 +99,23 @@ Sentences come from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR). The app looks
 first time a word is shown (this needs internet) and saves it on the device, so it also works
 offline later. Words without a suitable sentence show none.
 
-## Demo lists: Basic 100 and Verb 100
+## Demo lists: Basic 100, Verb 100 and Noun 100
 
-The app comes with two built-in lists, each with natural-voice clips for all its words:
+The app comes with three built-in lists, each with natural-voice clips for all its words:
 
 - **Basic 100**: 100 everyday words in 7 chapters: numbers (0–10), colors, shapes, playground,
   animals, household, food & drink.
 - **Verb 100**: 100 common verbs in 9 chapters: basic verbs, modal verbs, daily routine,
   movement, talking, senses & thinking, home & play, feelings, and greetings.
+- **Noun 100**: 100 everyday nouns in 7 chapters: body, clothes, nature & weather, transport,
+  people, school & toys, town.
 
-Every Basic 100 word has a cartoon picture on the back of its flashcard: drawn colors and shapes
-(with faces), dots for the numbers 0–10, and emoji for animals, food and household items. They come
+Every Basic 100 and Noun 100 word has a cartoon picture on the back of its flashcard: drawn colors
+and shapes (with faces), dots for the numbers 0–10, and emoji for everything else. They come
 from [frontend/pictures.js](frontend/pictures.js) and are matched by the Dutch word, so the same
 words in your own lists get them too.
 
-Both are added automatically the first time the app is opened on a device with no lists.
+They are all added automatically the first time the app is opened on a device with no lists.
 Devices that already have lists, or where a demo list was deleted, can add it under
 **Lists → Demo lists**. That card also offers an **Update** when a demo list on the device is an
 older version (this resets the progress on that list).
@@ -151,7 +153,7 @@ use the device voice; make a new pack from a fresh backup to include them.
   - `store.js` – on-device storage, backup/restore, example-sentence lookup
   - `parser.js` – PDF word-list parser (loads `vendor/pdfjs/`, Apache-2.0)
   - `app.js`, `pictures.js` (flashcard pictures), `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
-  - `demo/` – the built-in Basic 100 and Verb 100 lists and their natural-voice packs
+  - `demo/` – the built-in Basic 100, Verb 100 and Noun 100 lists and their natural-voice packs
 - `tools/export_backup.py` – converts the old server database into a backup file
 - `tools/make_audio_pack.py` – makes a natural-voice pack from a backup file
 - `backend/`, `requirements.txt`, `railway.json` – the earlier server version (FastAPI, with

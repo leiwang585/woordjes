@@ -1,7 +1,7 @@
 'use strict';
 
-/* Cartoon pictures for the back of flashcards (Basic 100 words, and the same words in other lists).
-   Colors and shapes are drawn here as SVG, numbers 0–10 as dots, the rest are emoji. */
+/* Cartoon pictures for the back of flashcards (Basic 100 and Noun 100 words, and the same words in
+   other lists). Colors and shapes are drawn here as SVG, numbers 0–10 as dots, the rest are emoji. */
 
 const pictureFor = (() => {
     const INK = '#2d2d2d';
@@ -97,6 +97,29 @@ const pictureFor = (() => {
         'de aardbei': '🍓', 'de melk': '🥛', 'het sap': '🧃', 'het water': '💧',
         'de peer': '🍐', 'de druif': '🍇', 'de wortel': '🥕', 'de tomaat': '🍅', 'het koekje': '🍪', 'het ijsje': '🍦',
         'de thee': '🍵',
+
+        // Noun 100
+        'het gezicht': '🙂', 'het oog': '👁️', 'het oor': '👂', 'de neus': '👃', 'de mond': '👄', 'de tand': '🦷',
+        'de tong': '👅', 'het haar': '💇', 'de hand': '✋', 'de vinger': '👆', 'de arm': '💪', 'het been': '🦵',
+        'de voet': '🦶', 'de hersenen': '🧠',
+        'de jas': '🧥', 'de broek': '👖', 'het t-shirt': '👕', 'de jurk': '👗', 'de schoen': '👞', 'de laars': '👢',
+        'de sok': '🧦', 'de pet': '🧢', 'de hoed': '🎩', 'de sjaal': '🧣', 'de handschoen': '🧤', 'de bril': '👓',
+        'de tas': '👜', 'het badpak': '🩱',
+        'de zon': '☀️', 'de maan': '🌙', 'de wolk': '☁️', 'de regen': '🌧️', 'de sneeuw': '❄️', 'de wind': '🌬️',
+        'de bliksem': '⚡', 'de regenboog': '🌈', 'de boom': '🌳', 'de bloem': '🌸', 'het blad': '🍃', 'de berg': '⛰️',
+        'de zee': '🌊', 'het strand': '🏖️', 'het vuur': '🔥',
+        'de auto': '🚗', 'de fiets': '🚲', 'de bus': '🚌', 'de trein': '🚆', 'de tram': '🚋', 'de taxi': '🚕',
+        'de vrachtwagen': '🚚', 'de motor': '🏍️', 'de tractor': '🚜', 'het vliegtuig': '✈️', 'de helikopter': '🚁',
+        'de boot': '⛵', 'het schip': '🚢', 'de raket': '🚀', 'de step': '🛴',
+        'de moeder': '👩', 'de vader': '👨', 'de baby': '👶', 'de jongen': '👦', 'het meisje': '👧', 'de oma': '👵',
+        'de opa': '👴', 'het gezin': '👨‍👩‍👧', 'de dokter': '🧑‍⚕️', 'de politieagent': '👮', 'de leraar': '🧑‍🏫',
+        'de brandweerman': '🧑‍🚒', 'de kok': '🧑‍🍳', 'de boer': '🧑‍🌾',
+        'het boek': '📖', 'de pen': '🖊️', 'het potlood': '✏️', 'de schaar': '✂️', 'de rugzak': '🎒', 'de computer': '💻',
+        'de telefoon': '📱', 'de teddybeer': '🧸', 'de puzzel': '🧩', 'de ballon': '🎈', 'de vlieger': '🪁',
+        'de trommel': '🥁', 'de gitaar': '🎸', 'het cadeau': '🎁',
+        'de school': '🏫', 'de winkel': '🏪', 'de supermarkt': '🛒', 'het ziekenhuis': '🏥', 'de kerk': '⛪',
+        'het station': '🚉', 'de straat': '🛣️', 'de brug': '🌉', 'het park': '🏞️', 'de stad': '🏙️', 'het kasteel': '🏰',
+        'de bibliotheek': '📚', 'het postkantoor': '🏤', 'de fabriek': '🏭',
     };
 
     const NUMBERS = {

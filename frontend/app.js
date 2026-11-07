@@ -513,6 +513,10 @@ const DEMOS = [
         name: 'Verb 100', version: 1, words: 'demo/verb-100.json', voice: 'demo/verb-100-voice.json',
         about: '100 common verbs in 9 chapters, from modal verbs and daily routine to feelings, plus greetings.',
     },
+    {
+        name: 'Noun 100', version: 1, words: 'demo/noun-100.json', voice: 'demo/noun-100-voice.json',
+        about: '100 everyday nouns with pictures in 7 chapters: body, clothes, nature & weather, transport, people, school & toys, town.',
+    },
 ];
 
 function demoVersions() {
