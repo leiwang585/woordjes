@@ -969,7 +969,7 @@ async function renderCards(view) {
         wrap,
         hint,
         el('div', { class: 'row card-actions' },
-            el('button', { class: 'btn danger-soft', type: 'button', onclick: () => next(false) }, '✗  Still learning'),
+            el('button', { class: 'btn danger-soft', type: 'button', onclick: () => next(false) }, '✗  Still learn'),
             autoBtn,
             el('button', { class: 'btn success', type: 'button', onclick: () => next(true) }, '✓  Know it')));
     const summary = el('div', { class: 'card center summary', hidden: true });

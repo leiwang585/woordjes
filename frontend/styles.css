@@ -169,16 +169,18 @@ body {
     flex: 1;
 }
 
-/* Still learning / Auto / Know it: sized to their labels so all three fit on one line */
+/* Still learn / Auto / Know it: the outer two share the space equally, Auto fits its label */
 .card-actions {
     gap: 8px;
 }
 
 .card-actions>.btn {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
     width: auto;
     padding-left: 10px;
     padding-right: 10px;
+    white-space: nowrap;
 }
 
 .card-actions>.auto-btn {

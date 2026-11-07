@@ -1,4 +1,4 @@
-const CACHE = 'woordjes-v18';
+const CACHE = 'woordjes-v19';
 // Relative to this file, so the app works from any folder (e.g. GitHub Pages /repo-name/).
 const SHELL = [
     './',

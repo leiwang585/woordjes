@@ -78,7 +78,7 @@ The study bar on the Words/Cards/Quiz screens lets you choose:
 - **Chapter**: all chapters or a single chapter (shown only when the list has chapters).
 
 Flashcards skip words you know: **Know it** marks a word as known and it leaves the deck;
-**Still learning** (or a wrong answer in Quiz) brings it back. When everything is known,
+**Still learn** (or a wrong answer in Quiz) brings it back. When everything is known,
 **Review all** goes through every word again. In *Sequential* and *A–Z* order, the app continues
 where you left off, separately for each list, chapter and mode.
 
@@ -86,11 +86,11 @@ Swipe the card left (one finger) for the next card, or right for the previous on
 the ← and → arrow keys do the same. Swiping doesn't mark the word, and after the last card it
 starts again at the first.
 
-The **▶ Auto** button (between *Still learning* and *Know it*) plays the cards hands-free in the
+The **▶ Auto** button (between *Still learn* and *Know it*) plays the cards hands-free in the
 chosen chapter and order: it flips each card after 3 seconds (pronouncing the word again), waits
 3 more seconds, then moves to the next card, looping until you tap **⏸ Stop** or leave the screen.
 Auto play doesn't change your known/learning marks, but you can still tap *Know it* or *Still
-learning* while it plays.
+learn* while it plays.
 
 ## Example sentences
 
