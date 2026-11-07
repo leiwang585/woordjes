@@ -482,62 +482,94 @@ function voiceCard() {
         packInput);
 }
 
-/* ---------- Built-in demo list ---------- */
+/* ---------- Built-in demo lists ---------- */
 
-const DEMO = { name: 'Basic 100', words: 'demo/basic-100.json', voice: 'demo/basic-100-voice.json' };
+// Raise `version` after changing a list, so devices with an older copy are offered the update.
+const DEMOS = [
+    {
+        name: 'Basic 100', version: 2, words: 'demo/basic-100.json', voice: 'demo/basic-100-voice.json',
+        about: '100 everyday words in 7 chapters: numbers, colors, shapes, playground, animals, household, food & drink.',
+    },
+    {
+        name: 'Verb 100', version: 1, words: 'demo/verb-100.json', voice: 'demo/verb-100-voice.json',
+        about: '100 common verbs in 9 chapters, from modal verbs and daily routine to feelings, plus greetings.',
+    },
+];
+
+function demoVersions() {
+    try {
+        return JSON.parse(localStorage.getItem('demoVersions')) || {};
+    } catch {
+        return {};
+    }
+}
 
 async function fetchJson(url) {
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Could not download the demo list');
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
     return res.json();
 }
 
-// Adds the demo list, then installs its natural-voice clips in the background.
-async function addDemoList() {
+// Adds (or replaces) a demo list, then installs its natural-voice clips in the background.
+async function addDemoList(demo) {
     let backup;
     try {
-        backup = await fetchJson(DEMO.words);
+        backup = await fetchJson(demo.words);
     } catch {
-        throw new Error('Could not download the demo list. Are you online?');
+        throw new Error(`Could not download "${demo.name}". Are you online?`);
     }
     store.importData(backup);
+    localStorage.setItem('demoVersions', JSON.stringify({ ...demoVersions(), [demo.name]: demo.version }));
     localStorage.setItem('demoAdded', '1');
-    fetchJson(DEMO.voice)
+    fetchJson(demo.voice)
         .then((pack) => audioStore.importPack(pack))
         .then(refreshVoicePack)
         .catch(() => { /* the device voice is used instead */ });
 }
 
-// New users start with the demo list. Only once per device, so deleting it is respected.
+// New users start with the demo lists. Only once per device, so deleting them is respected.
 async function addDemoOnFirstRun() {
     if (localStorage.getItem('demoAdded')) return;
     if (store.lists().length) {
-        localStorage.setItem('demoAdded', '1'); // existing users can add it from the Lists screen
+        localStorage.setItem('demoAdded', '1'); // existing users can add them from the Lists screen
         return;
     }
-    await addDemoList();
+    for (const demo of [...DEMOS].reverse()) await addDemoList(demo); // newest is listed first
 }
 
+// Offers demo lists that aren't on this device, and updates for older copies.
 function demoCard() {
-    if (store.lists().some((l) => l.name === DEMO.name)) return null;
-    const btn = el('button', {
-        class: 'btn small primary', type: 'button',
-        onclick: async () => {
-            btn.disabled = true;
-            try {
-                await addDemoList();
-                toast(`Added "${DEMO.name}"`);
-                router();
-            } catch (e) {
-                toast(e.message);
-                btn.disabled = false;
-            }
-        },
-    }, `Add ${DEMO.name}`);
+    const names = new Set(store.lists().map((l) => l.name));
+    const versions = demoVersions();
+    const items = DEMOS.map((demo) => {
+        const installed = names.has(demo.name);
+        // Copies from before versioning count as version 1.
+        if (installed && (versions[demo.name] || 1) >= demo.version) return null;
+        const btn = el('button', {
+            class: 'btn small primary', type: 'button',
+            onclick: async () => {
+                if (installed && !confirm(`Replace "${demo.name}" with the new version? Your progress on this list will be reset.`)) return;
+                btn.disabled = true;
+                try {
+                    await addDemoList(demo);
+                    toast(installed ? `Updated "${demo.name}"` : `Added "${demo.name}"`);
+                    router();
+                } catch (e) {
+                    toast(e.message);
+                    btn.disabled = false;
+                }
+            },
+        }, installed ? `Update ${demo.name}` : `Add ${demo.name}`);
+        return el('div', { class: 'demo-item' },
+            el('strong', { text: installed ? `${demo.name} (new version)` : demo.name }),
+            el('p', { class: 'muted small-print', text: demo.about }),
+            el('div', { class: 'row' }, btn));
+    }).filter(Boolean);
+    if (!items.length) return null;
     return el('section', { class: 'card backup-card' },
-        el('h2', { text: `Demo list: ${DEMO.name}` }),
-        el('p', { class: 'muted small-print', text: '100 everyday words in 9 chapters (numbers, colors, shapes, playground, animals, household, common verbs, food and greetings), with a natural Dutch voice.' }),
-        el('div', { class: 'row' }, btn));
+        el('h2', { text: 'Demo lists' }),
+        el('p', { class: 'muted small-print', text: 'Ready-made lists with a natural Dutch voice.' }),
+        ...items);
 }
 
 /* ---------- Backup ---------- */

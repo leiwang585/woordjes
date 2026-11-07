@@ -291,6 +291,19 @@ input[type="search"] {
     margin-top: 22px;
 }
 
+.demo-item {
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.demo-item+.demo-item {
+    margin-top: 14px;
+}
+
+.demo-item p {
+    margin: 4px 0 10px;
+}
+
 .chip {
     border: 1px solid rgba(255, 255, 255, .35);
     color: #fff;

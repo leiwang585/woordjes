@@ -1,4 +1,4 @@
-const CACHE = 'woordjes-v15';
+const CACHE = 'woordjes-v16';
 // Relative to this file, so the app works from any folder (e.g. GitHub Pages /repo-name/).
 const SHELL = [
     './',
@@ -9,6 +9,7 @@ const SHELL = [
     'parser.js',
     'manifest.json',
     'demo/basic-100.json',
+    'demo/verb-100.json',
     'icons/icon-180.png',
     'icons/icon-192.png',
     'icons/icon-512.png',

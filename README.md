@@ -16,7 +16,7 @@ the device, and the app works offline.
    minute the app is live at `https://<your-username>.github.io/woordjes/`.
 4. On the iPhone, open that address in **Safari**, then tap **Share → Add to Home Screen**.
 5. Open **Woordjes** from the Home Screen. On a new device it starts with the built-in
-   **Basic 100** demo list (see below). Add your own words: upload a PDF (from Files/iCloud
+   **Basic 100** and **Verb 100** demo lists (see below). Add your own words: upload a PDF (from Files/iCloud
    Drive/OneDrive) or restore a backup.
 
 Updates: push to `main`. The installed app picks up the new version the next time it's opened
@@ -99,19 +99,25 @@ Sentences come from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR). The app looks
 first time a word is shown (this needs internet) and saves it on the device, so it also works
 offline later. Words without a suitable sentence show none.
 
-## Demo list: Basic 100
+## Demo lists: Basic 100 and Verb 100
 
-The app comes with a built-in demo list, **Basic 100**: 100 everyday words in 9 chapters
-(numbers 0–20, 100 and 1000; colors; shapes; playground; animals; household; common verbs;
-food & drink; greetings). It's added automatically the first time the app is opened on a device
-with no lists, together with natural-voice clips for all its words. Devices that already have
-lists, or where it was deleted, can add it under **Lists → Demo list → Add Basic 100**.
+The app comes with two built-in lists, each with natural-voice clips for all its words:
 
-The list is [frontend/demo/basic-100.json](frontend/demo/basic-100.json) (in backup format).
-After editing it, render its voice clips again:
+- **Basic 100**: 100 everyday words in 7 chapters: numbers (0–23, 100, 101, 111, 121, 200,
+  211, 223, 1000), colors, shapes, playground, animals, household, food & drink.
+- **Verb 100**: 100 common verbs in 9 chapters: basic verbs, modal verbs, daily routine,
+  movement, talking, senses & thinking, home & play, feelings, and greetings.
+
+Both are added automatically the first time the app is opened on a device with no lists.
+Devices that already have lists, or where a demo list was deleted, can add it under
+**Lists → Demo lists**. That card also offers an **Update** when a demo list on the device is an
+older version (this resets the progress on that list).
+
+The lists are in [frontend/demo/](frontend/demo/) (in backup format). After editing one, raise its
+`version` in `DEMOS` in `app.js` and render its voice clips again, e.g.:
 
 ```powershell
-.\.venv\Scripts\python.exe tools\make_audio_pack.py frontend\demo\basic-100.json -o frontend\demo\basic-100-voice.json
+.\.venv\Scripts\python.exe tools\make_audio_pack.py frontend\demo\verb-100.json -o frontend\demo\verb-100-voice.json
 ```
 
 ## Pronunciation
@@ -140,7 +146,7 @@ use the device voice; make a new pack from a fresh backup to include them.
   - `store.js` – on-device storage, backup/restore, example-sentence lookup
   - `parser.js` – PDF word-list parser (loads `vendor/pdfjs/`, Apache-2.0)
   - `app.js`, `index.html`, `styles.css`, `sw.js` (offline cache), `manifest.json`
-  - `demo/` – the built-in Basic 100 list and its natural-voice pack
+  - `demo/` – the built-in Basic 100 and Verb 100 lists and their natural-voice packs
 - `tools/export_backup.py` – converts the old server database into a backup file
 - `tools/make_audio_pack.py` – makes a natural-voice pack from a backup file
 - `backend/`, `requirements.txt`, `railway.json` – the earlier server version (FastAPI, with
