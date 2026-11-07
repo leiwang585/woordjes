@@ -115,6 +115,7 @@ body {
     padding: 18px 16px;
     max-width: 640px;
     margin: 0 auto;
+    overflow-x: clip; /* a swiped card sliding off-screen mustn't make the page scroll sideways */
     animation: fade-in .25s ease;
 }
 
@@ -623,6 +624,11 @@ input[type="search"] {
 .flashcard-wrap {
     position: relative;
     margin-bottom: 14px;
+    touch-action: pan-y; /* horizontal swipes change the card; vertical ones still scroll */
+}
+
+.flashcard.instant .flashcard-inner {
+    transition: none;
 }
 
 .flashcard {

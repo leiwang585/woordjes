@@ -122,7 +122,8 @@ again. **Backup** just writes this structure to a `.json` file; **Restore** read
    remembers your position, and shows the next card.
 
 The Quiz screen works the same way. The **Auto** button on the Cards screen uses a timer
-(`setTimeout`) to flip the card and move to the next one every 2 seconds.
+(`setTimeout`) to flip the card and move to the next one every 3 seconds. Swiping is handled with
+touch events (`touchstart`/`touchmove`/`touchend`) that measure how far the finger moved sideways.
 
 ## 6. Offline & "installing": the PWA part
 

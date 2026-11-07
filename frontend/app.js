@@ -466,9 +466,11 @@ function voiceCard() {
 
     return el('section', { class: 'card backup-card' },
         el('h2', { text: 'Dutch voice' }),
-        el('p', { class: 'muted small-print', text: canSynth
-            ? 'Choose the voice used for pronunciation. iPhone only lets web apps use its basic voices, so Enhanced voices from Settings don\'t appear here.'
-            : 'This browser has no speech support.' }),
+        el('p', {
+            class: 'muted small-print', text: canSynth
+                ? 'Choose the voice used for pronunciation. iPhone only lets web apps use its basic voices, so Enhanced voices from Settings don\'t appear here.'
+                : 'This browser has no speech support.'
+        }),
         el('div', { class: 'study-row' }, select, testBtn),
         el('div', { style: 'margin-top:14px' }, packStatus),
         el('div', { class: 'row' }, importBtn, removeBtn),
@@ -720,7 +722,7 @@ async function renderWords(view) {
     view.append(el('section', { class: 'card' }, count, search, el('div', { style: 'margin-top:8px' }, container)));
 }
 
-const AUTO_PAUSE_MS = 2000;
+const AUTO_PAUSE_MS = 3000;
 let autoTimer = null;
 
 async function renderCards(view) {
@@ -779,7 +781,7 @@ async function renderCards(view) {
         autoBtn.textContent = on ? '⏸ Stop' : '▶ Auto';
         autoBtn.setAttribute('aria-pressed', String(on));
         autoBtn.classList.toggle('primary', on);
-        hint.textContent = on ? 'Auto play: cards advance by themselves' : 'Tap the card to flip it';
+        hint.textContent = on ? 'Auto play: cards advance by themselves' : 'Tap to flip · swipe for next or previous';
         if (on) scheduleAuto();
     }
     function scheduleAuto() {
@@ -797,11 +799,79 @@ async function renderCards(view) {
         scheduleAuto();
     }
     const cardSpeaker = speakButton(() => deck[index].dutch, 'on-card');
+    const wrap = el('div', { class: 'flashcard-wrap' }, card, cardSpeaker);
+
+    // Swipe left for the next card, right for the previous one (without marking the word).
+    const SWIPE_MIN = 50;
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    let touch = null;
+    let sliding = false;
+    const setWrap = (transform, transition = 'none', opacity = '') => {
+        Object.assign(wrap.style, { transform, transition, opacity });
+    };
+    const snapBack = () => setWrap('', 'transform .2s ease-out');
+    function go(step) {
+        if (sliding) return;
+        if (index + step < 0) return snapBack(); // already at the first card
+        if (step > 0 && tracking) rememberPosition('cards', deck[index]);
+        index = (index + step) % deck.length; // past the last card, start again (as Auto does)
+        if (autoOn) scheduleAuto();
+        if (reduceMotion.matches) {
+            setWrap('');
+            return show();
+        }
+        sliding = true;
+        setWrap(`translateX(${step > 0 ? -110 : 110}%)`, 'transform .16s ease-in, opacity .16s', '0');
+        setTimeout(() => {
+            card.classList.add('instant'); // skip the flip-back animation while off-screen
+            show();
+            setWrap(`translateX(${step > 0 ? 110 : -110}%)`, 'none', '0');
+            void wrap.offsetWidth; // apply the start position before sliding in
+            card.classList.remove('instant');
+            setWrap('', 'transform .2s ease-out, opacity .2s');
+            sliding = false;
+        }, 160);
+    }
+    wrap.addEventListener('touchstart', (e) => {
+        touch = e.touches.length === 1 && !sliding
+            ? { x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, horizontal: null }
+            : null;
+    }, { passive: true });
+    wrap.addEventListener('touchmove', (e) => {
+        if (!touch) return;
+        if (e.touches.length !== 1) { touch = null; return snapBack(); }
+        const dx = e.touches[0].clientX - touch.x;
+        const dy = e.touches[0].clientY - touch.y;
+        if (touch.horizontal === null && Math.hypot(dx, dy) > 10) touch.horizontal = Math.abs(dx) > Math.abs(dy);
+        if (!touch.horizontal) return;
+        touch.dx = dx;
+        setWrap(`translateX(${dx}px) rotate(${dx / 40}deg)`);
+    }, { passive: true });
+    wrap.addEventListener('touchend', (e) => {
+        if (!touch) return;
+        const { dx, horizontal } = touch;
+        touch = null;
+        if (!horizontal) return; // a tap: let the click flip the card
+        if (e.cancelable) e.preventDefault(); // a swipe shouldn't also flip the card or play the speaker
+        if (dx <= -SWIPE_MIN) go(1);
+        else if (dx >= SWIPE_MIN) go(-1);
+        else snapBack();
+    });
+    wrap.addEventListener('touchcancel', () => { touch = null; snapBack(); });
+    // Arrow keys do the same on a computer.
+    const onKey = (e) => {
+        if (!wrap.isConnected) return document.removeEventListener('keydown', onKey);
+        if (study.hidden || e.target.closest('input, select, textarea')) return;
+        if (e.key === 'ArrowRight') go(1);
+        else if (e.key === 'ArrowLeft') go(-1);
+    };
+    document.addEventListener('keydown', onKey);
+
     const progress = el('div', { class: 'progress' }, el('span'));
     const counter = el('span', { class: 'muted' });
     const study = el('div', {},
         el('div', { class: 'progress-head' }, progress, counter),
-        el('div', { class: 'flashcard-wrap' }, card, cardSpeaker),
+        wrap,
         hint,
         el('div', { class: 'row card-actions' },
             el('button', { class: 'btn danger-soft', type: 'button', onclick: () => next(false) }, '✗  Still learning'),
