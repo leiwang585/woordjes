@@ -1,6 +1,6 @@
 # Woordjes – Dutch Vocabulary Trainer
 
-A Dutch vocabulary app (flashcards, multiple choice, typing practice) that runs **entirely on
+A Dutch vocabulary app (flashcards, multiple choice, auto play) that runs **entirely on
 your phone**. It's a static web app (HTML/CSS/JS) that you install from Safari with
 "Add to Home Screen". There's no server and no account: your words and progress are stored on
 the device, and the app works offline.
@@ -70,16 +70,22 @@ Lists with chapters get a chapter filter in the study bar.
 
 ## Study options
 
-The study bar on the Words/Cards/Quiz/Type screens lets you choose:
+The study bar on the Words/Cards/Quiz screens lets you choose:
 
-- **Order**: *Random* (Quiz/Type favour words you often get wrong), *Sequential*
+- **Order**: *Random* (Quiz favours words you often get wrong), *Sequential*
   (by chapter, then the order of the original list), or *A–Z* (alphabetical by the prompt word).
 - **Chapter**: all chapters or a single chapter (shown only when the list has chapters).
 
 Flashcards skip words you know: **Know it** marks a word as known and it leaves the deck;
-**Still learning** (or a wrong answer in Quiz/Type) brings it back. When everything is known,
+**Still learning** (or a wrong answer in Quiz) brings it back. When everything is known,
 **Review all** goes through every word again. In *Sequential* and *A–Z* order, the app continues
 where you left off, separately for each list, chapter and mode.
+
+The **▶ Auto** button (between *Still learning* and *Know it*) plays the cards hands-free in the
+chosen chapter and order: it flips each card after 2 seconds (pronouncing the word again), waits
+2 more seconds, then moves to the next card, looping until you tap **⏸ Stop** or leave the screen.
+Auto play doesn't change your known/learning marks, but you can still tap *Know it* or *Still
+learning* while it plays.
 
 ## Example sentences
 

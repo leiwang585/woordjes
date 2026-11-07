@@ -168,6 +168,23 @@ body {
     flex: 1;
 }
 
+/* Still learning / Auto / Know it: sized to their labels so all three fit on one line */
+.card-actions {
+    gap: 8px;
+}
+
+.card-actions>.btn {
+    flex: 1 1 auto;
+    width: auto;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.card-actions>.auto-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
 .stack>*+* {
     margin-top: 10px;
 }
@@ -895,21 +912,6 @@ input[type="search"] {
 
 .feedback.bad {
     color: var(--red);
-}
-
-.answer-input {
-    text-align: center;
-    font-size: 1.15rem !important;
-}
-
-.answer-input.ok {
-    border-color: var(--green);
-    background: var(--green-bg);
-}
-
-.answer-input.bad {
-    border-color: var(--red);
-    background: var(--red-bg);
 }
 
 .empty {

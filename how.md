@@ -51,7 +51,7 @@ const words = list.filter((w) => w.known);   // words = [w for w in lst if w.kno
 | [index.html](frontend/index.html) | The skeleton: top bar, study selectors, empty `<main>` area, tab bar. Loads the scripts. | The window frame |
 | [styles.css](frontend/styles.css) | All the visuals | — |
 | [store.js](frontend/store.js) | **Data layer**: saving lists, words and progress; backup/restore; voice-pack storage; fetching example sentences | Like a small `models.py` + `db.py` |
-| [app.js](frontend/app.js) | **Everything you see and tap**: screens, flashcards, quiz, typing check, pronunciation | `main.py` + all the UI code |
+| [app.js](frontend/app.js) | **Everything you see and tap**: screens, flashcards, quiz, auto play, pronunciation | `main.py` + all the UI code |
 | [parser.js](frontend/parser.js) | Reads a PDF and finds word pairs and chapters. A direct translation of the old `pdf_parser.py`. | Same regexes, same logic |
 | `frontend/vendor/pdfjs/` | Mozilla's PDF reading library (downloaded, not written by us) | Like a `pip install`ed package, copied in |
 | [sw.js](frontend/sw.js) | **Service worker**: keeps a copy of the app on the phone so it works offline | A local cache that intercepts downloads |
@@ -61,7 +61,7 @@ const words = list.filter((w) => w.known);   // words = [w for w in lst if w.kno
 ### How `app.js` builds screens
 
 There's one page; the app swaps what's inside `<main>`. The part after `#` in the URL decides
-which screen to show (`#cards`, `#mc`, `#type`…). This is the `routes` table near the bottom of
+which screen to show (`#cards`, `#mc`…). This is the `routes` table near the bottom of
 `app.js`:
 
 ```js
@@ -121,9 +121,8 @@ again. **Backup** just writes this structure to a `.json` file; **Restore** read
 6. You tap **Know it**: `recordResult(word, True)` sets `correct += 1, known = True`, saves,
    remembers your position, and shows the next card.
 
-The Quiz and Type screens work the same way. The typing check (`checkAnswer`) ignores case and
-accents, accepts a missing article like *de*/*het*, and allows one typo, using a Levenshtein
-distance written by hand.
+The Quiz screen works the same way. The **Auto** button on the Cards screen uses a timer
+(`setTimeout`) to flip the card and move to the next one every 2 seconds.
 
 ## 6. Offline & "installing": the PWA part
 

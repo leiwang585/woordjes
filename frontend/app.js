@@ -268,40 +268,6 @@ function normalize(s) {
 
 const stripArticle = (s) => s.replace(/^(de|het|een|the|a|an|to) /, '');
 
-function variants(target) {
-    const parts = target.split(/[,;/]/).map(normalize).filter(Boolean);
-    parts.push(normalize(target));
-    return parts;
-}
-
-function levenshtein(a, b) {
-    const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
-    for (let i = 1; i <= a.length; i++) {
-        let prev = dp[0];
-        dp[0] = i;
-        for (let j = 1; j <= b.length; j++) {
-            const tmp = dp[j];
-            dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
-            prev = tmp;
-        }
-    }
-    return dp[b.length];
-}
-
-// Returns 'correct', 'almost' (typo or missing/wrong article) or 'wrong'.
-function checkAnswer(given, target) {
-    const g = normalize(given);
-    if (!g) return 'wrong';
-    const vs = variants(target);
-    if (vs.includes(g)) return 'correct';
-    const gs = stripArticle(g);
-    const close = vs.some((v) => {
-        const s = stripArticle(v);
-        return s === gs || (s.length >= 4 && levenshtein(s, gs) <= 1);
-    });
-    return close ? 'almost' : 'wrong';
-}
-
 /* ---------- Data ---------- */
 
 async function loadLists() {
@@ -754,6 +720,9 @@ async function renderWords(view) {
     view.append(el('section', { class: 'card' }, count, search, el('div', { style: 'margin-top:8px' }, container)));
 }
 
+const AUTO_PAUSE_MS = 2000;
+let autoTimer = null;
+
 async function renderCards(view) {
     await loadLists();
     await loadWords();
@@ -793,20 +762,50 @@ async function renderCards(view) {
         syncSpeaker();
         speak(deck[index].dutch, cardSpeaker);
     };
+    const tapFlip = () => { flip(); if (autoOn) scheduleAuto(); };
     const card = el('div', {
         class: 'flashcard', role: 'button', tabindex: '0', 'aria-label': 'Flip card',
-        onclick: flip,
-        onkeydown: (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } },
+        onclick: tapFlip,
+        onkeydown: (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tapFlip(); } },
     }, el('div', { class: 'flashcard-inner' }, front, back));
+
+    // Auto play: flip the card (pronouncing it again), pause, then move on without marking the word.
+    let autoOn = false;
+    const autoBtn = el('button', { class: 'btn auto-btn', type: 'button', 'aria-pressed': 'false', onclick: () => setAuto(!autoOn) });
+    const hint = el('p', { class: 'hint' });
+    function setAuto(on) {
+        autoOn = on;
+        clearTimeout(autoTimer);
+        autoBtn.textContent = on ? '⏸ Stop' : '▶ Auto';
+        autoBtn.setAttribute('aria-pressed', String(on));
+        autoBtn.classList.toggle('primary', on);
+        hint.textContent = on ? 'Auto play: cards advance by themselves' : 'Tap the card to flip it';
+        if (on) scheduleAuto();
+    }
+    function scheduleAuto() {
+        clearTimeout(autoTimer);
+        autoTimer = setTimeout(autoStep, AUTO_PAUSE_MS);
+    }
+    function autoStep() {
+        if (!isFlipped()) {
+            flip();
+        } else {
+            if (tracking) rememberPosition('cards', deck[index]);
+            index = (index + 1) % deck.length; // loop through the deck until stopped
+            show();
+        }
+        scheduleAuto();
+    }
     const cardSpeaker = speakButton(() => deck[index].dutch, 'on-card');
     const progress = el('div', { class: 'progress' }, el('span'));
     const counter = el('span', { class: 'muted' });
     const study = el('div', {},
         el('div', { class: 'progress-head' }, progress, counter),
         el('div', { class: 'flashcard-wrap' }, card, cardSpeaker),
-        el('p', { class: 'hint', text: 'Tap the card to flip it' }),
-        el('div', { class: 'row' },
+        hint,
+        el('div', { class: 'row card-actions' },
             el('button', { class: 'btn danger-soft', type: 'button', onclick: () => next(false) }, '✗  Still learning'),
+            autoBtn,
             el('button', { class: 'btn success', type: 'button', onclick: () => next(true) }, '✓  Know it')));
     const summary = el('div', { class: 'card center summary', hidden: true });
 
@@ -839,11 +838,16 @@ async function renderCards(view) {
         if (tracking) rememberPosition('cards', w);
         if (!known) missed.push(w);
         index++;
-        if (index < deck.length) return show();
+        if (index < deck.length) {
+            show();
+            if (autoOn) scheduleAuto();
+            return;
+        }
         finish();
     }
 
     function finish() {
+        setAuto(false);
         stopSpeaking();
         study.hidden = true;
         if (tracking) rememberPosition('cards', null); // next round starts at the beginning
@@ -862,6 +866,7 @@ async function renderCards(view) {
     }
 
     function allKnown() {
+        setAuto(false);
         study.hidden = true;
         summary.replaceChildren(
             el('div', { class: 'empty-icon', text: '🎉' }),
@@ -882,6 +887,7 @@ async function renderCards(view) {
         }
         index = 0;
         missed = [];
+        setAuto(false);
         if (!deck.length) return allKnown();
         summary.hidden = true;
         study.hidden = false;
@@ -988,74 +994,6 @@ async function renderMC(view) {
     ask();
 }
 
-async function renderTyping(view) {
-    await loadLists();
-    await loadWords();
-    if (!state.words.length) {
-        view.append(emptyState('No words to practise yet.'));
-        return;
-    }
-
-    const score = scoreline();
-    const prompt = promptBox();
-    const input = el('input', {
-        type: 'text', class: 'answer-input', autocomplete: 'off', autocorrect: 'off',
-        autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'go',
-        'aria-label': 'Your answer',
-    });
-    const feedback = el('p', { class: 'feedback' });
-    const submitBtn = el('button', { class: 'btn primary', type: 'submit' }, 'Check');
-    const skipBtn = el('button', { class: 'btn', type: 'button', onclick: () => reveal('wrong', true) }, 'Show answer');
-    let word = null;
-    let answered = false;
-    const nextWord = wordPicker(state.words, 'type');
-
-    function ask() {
-        word = nextWord();
-        answered = false;
-        prompt.set(word);
-        input.value = '';
-        input.className = 'answer-input';
-        input.readOnly = false;
-        input.placeholder = state.direction === 'nl-en' ? 'Type the English…' : 'Type the Dutch…';
-        feedback.textContent = '';
-        feedback.className = 'feedback';
-        submitBtn.textContent = 'Check';
-        skipBtn.hidden = false;
-        input.focus();
-    }
-
-    function reveal(result, skipped = false) {
-        const answer = answerOf(word);
-        const ok = result !== 'wrong';
-        answered = true;
-        input.readOnly = true;
-        input.className = `answer-input ${ok ? 'ok' : 'bad'}`;
-        if (result === 'correct') feedback.textContent = 'Goed zo! Correct.';
-        else if (result === 'almost') feedback.textContent = `Almost! Exact answer: ${answer}`;
-        else feedback.textContent = skipped ? `Answer: ${answer}` : `Wrong. Correct answer: ${answer}`;
-        feedback.className = `feedback ${ok ? 'ok' : 'bad'}`;
-        score.add(ok);
-        recordResult(word, ok);
-        rememberPosition('type', word);
-        prompt.answered();
-        submitBtn.textContent = 'Next →';
-        skipBtn.hidden = true;
-        submitBtn.focus();
-    }
-
-    const form = el('form', { class: 'stack' }, input, el('div', { class: 'row' }, skipBtn, submitBtn));
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (answered) return ask();
-        if (!input.value.trim()) return;
-        reveal(checkAnswer(input.value, answerOf(word)));
-    });
-
-    view.append(el('section', { class: 'card quiz' }, score.node, prompt.node, form, feedback));
-    ask();
-}
-
 /* ---------- Router ---------- */
 
 const routes = {
@@ -1064,7 +1002,6 @@ const routes = {
     words: { title: 'Words', render: renderWords, study: true },
     cards: { title: 'Flashcards', render: renderCards, study: true },
     mc: { title: 'Multiple choice', render: renderMC, study: true },
-    type: { title: 'Typing quiz', render: renderTyping, study: true },
 };
 
 let renderToken = 0;
@@ -1074,6 +1011,7 @@ async function router() {
     const route = routes[name];
     const token = ++renderToken;
     stopSpeaking();
+    clearTimeout(autoTimer);
 
     document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
     $('#title').textContent = route.title;
