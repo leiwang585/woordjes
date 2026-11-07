@@ -220,6 +220,25 @@ async function speak(text, btn = null) {
     document.addEventListener('click', unlock, true);
 }
 
+// iPhone keeps a web app's audio (and its timers) running in the background, so Auto play would go
+// on after the app is swiped away. Stop everything when the app is hidden, and unload the clip so it
+// disappears from the Dynamic Island / lock screen.
+let stopAuto = null; // set by the Cards screen
+function stopAllSound() {
+    stopAuto?.();
+    stopSpeaking();
+    audio.removeAttribute('src');
+    audio.load();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopAllSound(); });
+window.addEventListener('pagehide', stopAllSound);
+// The pause button on the lock screen / Dynamic Island stops Auto play too.
+if ('mediaSession' in navigator) {
+    for (const action of ['pause', 'stop']) {
+        try { navigator.mediaSession.setActionHandler(action, stopAllSound); } catch { /* not supported */ }
+    }
+}
+
 const SPEAKER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path class="wave1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 
 function speakButton(getText, extraClass = '') {
@@ -880,11 +899,13 @@ async function renderCards(view) {
         hint.textContent = on ? 'Auto play: cards advance by themselves' : 'Tap to flip · swipe for next or previous';
         if (on) scheduleAuto();
     }
+    stopAuto = () => setAuto(false);
     function scheduleAuto() {
         clearTimeout(autoTimer);
         autoTimer = setTimeout(autoStep, AUTO_PAUSE_MS);
     }
     function autoStep() {
+        if (document.hidden) return setAuto(false); // never keep playing in the background
         if (!isFlipped()) {
             flip();
         } else {
@@ -1180,6 +1201,7 @@ async function router() {
     const token = ++renderToken;
     stopSpeaking();
     clearTimeout(autoTimer);
+    stopAuto = null;
 
     document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === name));
     $('#title').textContent = route.title;
