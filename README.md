@@ -103,8 +103,8 @@ offline later. Words without a suitable sentence show none.
 
 The app comes with two built-in lists, each with natural-voice clips for all its words:
 
-- **Basic 100**: 100 everyday words in 7 chapters: numbers (0–23, 100, 101, 111, 121, 200,
-  211, 223, 1000), colors, shapes, playground, animals, household, food & drink.
+- **Basic 100**: 100 everyday words in 7 chapters: numbers (0–10), colors, shapes, playground,
+  animals, household, food & drink.
 - **Verb 100**: 100 common verbs in 9 chapters: basic verbs, modal verbs, daily routine,
   movement, talking, senses & thinking, home & play, feelings, and greetings.
 

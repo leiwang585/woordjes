@@ -1,7 +1,7 @@
 'use strict';
 
 /* Cartoon pictures for the back of flashcards (Basic 100 words, and the same words in other lists).
-   Colors and shapes are drawn here as SVG, numbers as dots or digits, the rest are emoji. */
+   Colors and shapes are drawn here as SVG, numbers 0–10 as dots, the rest are emoji. */
 
 const pictureFor = (() => {
     const INK = '#2d2d2d';
@@ -75,7 +75,8 @@ const pictureFor = (() => {
         // Animals
         'de hond': '🐶', 'de kat': '🐱', 'het paard': '🐴', 'de koe': '🐮', 'het varken': '🐷', 'het schaap': '🐑',
         'de kip': '🐔', 'de eend': '🦆', 'het konijn': '🐰', 'de muis': '🐭', 'de vogel': '🐦', 'de vis': '🐟',
-        'de olifant': '🐘', 'de leeuw': '🦁',
+        'de olifant': '🐘', 'de leeuw': '🦁', 'de tijger': '🐯', 'de beer': '🐻', 'de aap': '🐵', 'de giraf': '🦒',
+        'de kikker': '🐸', 'de schildpad': '🐢', 'de vlinder': '🦋',
 
         // Household
         'het huis': '🏠', 'de deur': '🚪', 'het raam': '🪟',
@@ -88,18 +89,18 @@ const pictureFor = (() => {
             + '<circle cx="44" cy="52" r="3" fill="' + INK + '"/><circle cx="56" cy="52" r="3" fill="' + INK + '"/>'
             + '<rect x="22" y="89" width="7" height="6" fill="#6d4c41"/><rect x="71" y="89" width="7" height="6" fill="#6d4c41"/>'),
         'de spiegel': '🪞', 'de keuken': '🍳', 'de badkamer': '🛁', 'de lamp': '💡', 'het bord': '🍽️', 'het kopje': '☕',
+        'de lepel': '🥄', 'de vork': '🍴', 'het mes': '🔪', 'de klok': '⏰', 'de televisie': '📺', 'het toilet': '🚽',
+        'de sleutel': '🔑',
 
         // Food & drink
         'het brood': '🍞', 'de kaas': '🧀', 'de boter': '🧈', 'het ei': '🥚', 'de appel': '🍎', 'de banaan': '🍌',
         'de aardbei': '🍓', 'de melk': '🥛', 'het sap': '🧃', 'het water': '💧',
+        'de peer': '🍐', 'de druif': '🍇', 'de wortel': '🥕', 'de tomaat': '🍅', 'het koekje': '🍪', 'het ijsje': '🍦',
+        'de thee': '🍵',
     };
 
     const NUMBERS = {
         nul: 0, 'één': 1, twee: 2, drie: 3, vier: 4, vijf: 5, zes: 6, zeven: 7, acht: 8, negen: 9, tien: 10,
-        elf: 11, twaalf: 12, dertien: 13, veertien: 14, vijftien: 15, zestien: 16, zeventien: 17, achttien: 18,
-        negentien: 19, twintig: 20, eenentwintig: 21, 'tweeëntwintig': 22, 'drieëntwintig': 23, honderd: 100,
-        honderdeen: 101, honderdelf: 111, honderdeenentwintig: 121, tweehonderd: 200, tweehonderdelf: 211,
-        'tweehonderddrieëntwintig': 223, duizend: 1000,
     };
 
     // Ten-frame: two rows of five, with n of them filled.
@@ -126,10 +127,7 @@ const pictureFor = (() => {
     // Returns trusted HTML for the word's picture, or '' when there is none.
     return (dutch) => {
         const k = key(dutch);
-        if (k in NUMBERS) {
-            const n = NUMBERS[k];
-            return n <= 10 ? tenFrame(n) : `<span class="pic-number">${n}</span>`;
-        }
+        if (k in NUMBERS) return tenFrame(NUMBERS[k]);
         const pic = PICTURES[k];
         if (!pic) return '';
         return pic.startsWith('<') ? pic : `<span class="pic-emoji">${pic}</span>`;
