@@ -487,7 +487,7 @@ function voiceCard() {
 // Raise `version` after changing a list, so devices with an older copy are offered the update.
 const DEMOS = [
     {
-        name: 'Basic 100', version: 3, words: 'demo/basic-100.json', voice: 'demo/basic-100-voice.json',
+        name: 'Basic 100', version: 4, words: 'demo/basic-100.json', voice: 'demo/basic-100-voice.json',
         about: '100 everyday words in 7 chapters: numbers, colors, shapes, playground, animals, household, food & drink.',
     },
     {
